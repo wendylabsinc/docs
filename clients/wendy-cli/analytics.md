@@ -1,0 +1,1 @@
+We track analytics for our CLI's usage through [Posthog](https://posthog.com/). This is [opt-out](./commands/analytics/disable.md), or through `WENDY_ANALYTICS=false` in your environment.
