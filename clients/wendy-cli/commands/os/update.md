@@ -1,0 +1,1 @@
+Updates the WendyOS release using [Mender](../../../../wendyos/mender-update.md) artifacts hosted on [GCP](../../../../operations/gcp.md). These are produced during WendyOS build and uploaded through [Wendy OS publisher](../../../../wendy-os-publisher/).

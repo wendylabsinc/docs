@@ -1,0 +1,1 @@
+Streams all OTel data as a custom JSONL format. This is used by the [VSCode extension](../../../../vscode/) to render the OTel traces, metrics and logs using only a single API call.

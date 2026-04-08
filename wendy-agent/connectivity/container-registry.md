@@ -10,3 +10,6 @@ HTTPS is provided by the container registry when a device is provisioned.
 
 > **TODO (urgent)**: The Container Registry must validate an authorized developer is accessing its contents.
 
+The registry effectively acts as an HTTP(S) proxy for containerd, so when pushing a container to the registry, it is directly injected into `containerd`. This way we don't duplicate data between registry and containerd, saving disk space.
+
+> **IDEA**: Containerd can also pull artifacts, for example, from [Wendy Cloud](../../cloud). This means we could disable the registry on production devices entirely.s
