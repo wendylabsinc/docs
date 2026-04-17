@@ -22,9 +22,7 @@ Same as SD card, but written to `nvme0n1` instead of `mmcblk0`.
 
 ## Config partition
 
-The `config` partition (FAT32, label `config`) is mounted at `/config` on boot via an fstab entry with `nofail`. It is readable and writable on Linux, macOS, and Windows without additional drivers.
-
-Use it to provide configuration files that need to survive OS updates or that users should be able to edit from a host machine without booting the device.
+See [Config Partition](../config-partition.md) for full details and usage guidance.
 
 ## Build configuration
 
