@@ -8,7 +8,7 @@ This flag configures (most) commands to format their output as JSON, so it can b
 
 Overrides the [default device](device-selection.md), connecting to the speicifed hostname or IP.
 
-## TODO: `--insecure`
+## **TODO**: `--insecure`
 
 Allows the Wendy-Agent to connect to unprovisioned devices without verified TLS.
 

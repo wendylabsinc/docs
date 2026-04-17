@@ -1,0 +1,39 @@
+# Default owner: CTO owns everything not otherwise matched
+* @Joannis
+
+# Architecture & cross-cutting
+/architecture/ @Joannis
+
+# Cloud Dashboard & Telemetry
+/cloud/ @martien-wdy
+
+# Debugging — general: Gabriele; Swift: Konstantin
+/debugging/ @gmondada
+/debugging/swift/ @konstantinbe
+
+# Apps — general: Christos; macOS: Konstantin
+/apps/ @chrisdok43
+/apps/macos/ @konstantinbe @chrisdok43
+
+# VS Code integration
+/vscode/ @konstantinbe
+
+# Wendy Lite
+/wendy-lite/ @gmondada
+
+# PKI & Security
+/pki/ @justsem
+
+# Operations & Compliance — Elizabeth (GitHub TBD), Max as CEO
+/operations/ @zamderax
+/compliance/ @justsem
+
+# Testing — Ethan
+/operations/testing/ @EBro912
+
+# WendyOS — Yocto builds
+/wendyos/ @abularca
+/wendy-os-publisher/ @abularca
+
+# Networking
+/wendy-agent/connectivity/ @thombles
