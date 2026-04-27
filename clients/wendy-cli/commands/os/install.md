@@ -12,5 +12,16 @@ This tool supports both NVME and SD flashing of [WendyOS](../../../../wendyos/) 
 2. Upon selection, lists available disks (or microcontrollers) to flash to.
 3. [Downloads the file](./download.md) to local developer machine [cache](./cache.md)
 4. Flashes the device
+5. Writes the [config partition](../../../../wendyos/config-partition.md) with the latest `wendy-agent` binary and, if WiFi credentials were provided, a `wendy.conf` — so the device connects to WiFi and self-updates the agent on first boot without any manual SSH access.
 
-> **TODO**: Post-flashing, the device needs [provisioning](../device/setup.md). This includes updating the latest [`wendy-agent`](../../../../wendy-agent/) on Linux, provisioning a [certificate](../../../../pki/) and [Wendy Cloud](../../../../cloud/)
+## WiFi pre-configuration
+
+Pass `--wifi-ssid` to pre-configure WiFi. If only `--wifi-ssid` is given (no `--wifi-password`), the CLI checks the system keychain (macOS) and, if not found, prompts for the password interactively.
+
+```sh
+wendy os install --wifi-ssid MyNetwork --wifi-password hunter2
+```
+
+When running interactively (stdin is a terminal) without flags, the CLI asks whether to configure WiFi and offers to scan for nearby networks and look up the password from the system keychain.
+
+> **TODO**: Post-flashing, the device still needs certificate provisioning and Wendy Cloud enrollment. See [device setup](../device/setup.md), [PKI](../../../../pki/), and [Wendy Cloud](../../../../cloud/).

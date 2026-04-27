@@ -1,2 +1,3 @@
-Provisions the device with a certificate, and connects it to [Wendy Cloud](../../../../cloud/).
-If the user is not authenticated to a cloud, it must prompt the user to log in.
+Interactive wizard that provisions the device, configures WiFi, and optionally updates the agent. Connects the device to [Wendy Cloud](../../../../cloud/) using the CLI's stored mTLS certificates.
+
+For provisioning against a self-hosted [pki-core](../../../../pki/) instead, use [`wendy device provision`](./provision.md).

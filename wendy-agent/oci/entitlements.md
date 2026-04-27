@@ -1,5 +1,7 @@
-When an entitlement is set, the agent will apply the relevant changes to its OCI spec. For example, the `network` entitlement allows your app (container) to access IP networking.
+When an entitlement is set, the agent applies the relevant changes to the container's OCI spec. For example, the `network` entitlement allows your app to access IP networking.
 
-Any entitlements _not_ set will reuslt in that resource _not_ being available.
+Any entitlement _not_ declared in `wendy.json` will result in that resource being unavailable to the app.
 
-Entitlements are [code signed](codesigning.md) as well, ensuring no privilege escalation.
+Entitlements are [code signed](codesigning.md), ensuring no privilege escalation.
+
+For the full list of available entitlements and their options, see [wendy.json — Entitlements](../../apps/wendy.json.md#entitlements-1).

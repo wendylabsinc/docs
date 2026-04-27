@@ -25,11 +25,34 @@ The partition is mounted at `/config` on every boot (fstab `nofail`, so a missin
 ls /config
 ```
 
+## wendy-agent self-update
+
+If a file named `wendy-agent` is present in `/config` on boot, the agent validates it (must be a 64-bit ELF binary for the device's architecture) and, if valid, installs it to `/usr/local/bin/wendy-agent` and exits so systemd restarts it with the new binary. The file is deleted from `/config` regardless of outcome, so it is only applied once.
+
+`wendy os install` writes the latest stable arm64 agent binary to the config partition automatically after flashing.
+
 ## wendy.conf
 
-The primary intended use of the config partition is a `wendy.conf` file that WendyOS reads on boot to configure the device — setting the device name, enrolling with the cloud, configuring WiFi, and so on. `wendy os install` will write this file automatically after flashing.
+`wendy.conf` is an INI-format file the agent reads on first boot to configure the device. If present, the agent applies its contents and then **deletes the file** so settings are not re-applied on subsequent boots.
 
-> **Status:** The `wendy.conf` systemd dispatcher and handler infrastructure is under active development (WDY-779). Once shipped, this will be the recommended way to provision a device without ever needing to SSH in.
+### Format
+
+```ini
+[wifi]
+ssid = MyNetwork
+password = hunter2
+```
+
+The `[wifi]` section connects the device to a WiFi network. `password` may be omitted for open networks.
+
+### How it is applied
+
+On every boot, `wendy-agent` checks for `/config/wendy.conf`. If found:
+
+1. If `[wifi]` contains a non-empty `ssid`, runs `nmcli device wifi connect <ssid> [password <password>]` to connect and create a persistent NetworkManager profile.
+2. Deletes `/config/wendy.conf` — even on failure, so bad credentials are not retried on every boot.
+
+`wendy os install` writes this file automatically when you supply WiFi credentials (via `--wifi-ssid` / `--wifi-password` flags or the interactive prompt).
 
 ## Size
 
