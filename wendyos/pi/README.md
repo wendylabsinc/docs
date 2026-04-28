@@ -1,10 +1,10 @@
 # WendyOS on Raspberry Pi
 
-WendyOS supports **Raspberry Pi 5** with SD card and NVMe boot configurations.
+WendyOS supports **Raspberry Pi 5**, **Raspberry Pi 4**, and **Raspberry Pi 3** with SD card boot configurations. Raspberry Pi 5 also supports NVMe boot configurations.
 
 ## Partition Layout
 
-RPi5 images use WIC (OpenEmbedded Image Creator) with a GPT partition table.
+Raspberry Pi images use WIC (OpenEmbedded Image Creator) with a GPT partition table.
 
 ### SD card layout
 
@@ -16,7 +16,7 @@ RPi5 images use WIC (OpenEmbedded Image Creator) with a GPT partition table.
 
 ### NVMe layout
 
-Same as SD card, but written to `nvme0n1` instead of `mmcblk0`.
+Raspberry Pi 5 supports NVMe images with the same partition layout, written to `nvme0n1` instead of `mmcblk0`.
 
 \* Default size. See [Build configuration](#build-configuration).
 

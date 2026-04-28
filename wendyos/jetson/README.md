@@ -1,6 +1,10 @@
 # WendyOS on Jetson
 
-WendyOS supports NVIDIA Jetson devices, currently targeting the **Jetson Orin Nano Devkit** with NVMe and SD card boot configurations.
+WendyOS supports NVIDIA Jetson devices, with **Jetson Orin Nano** shipped for NVMe and SD card boot configurations.
+
+**Jetson AGX Orin** support is imminent. **Jetson AGX Thor** support is in progress.
+
+For **DGX Spark**, install `wendy-agent` on the existing Linux system instead of flashing a WendyOS image.
 
 ## Partition Layout
 
