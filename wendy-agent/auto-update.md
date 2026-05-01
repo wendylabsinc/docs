@@ -31,7 +31,7 @@ The agent's `UpdateAgent` handler (`go/internal/agent/services/agent_service.go`
 
 1. Acquires an exclusive update lock (one update at a time).
 2. Accumulates incoming chunks and computes a running SHA-256.
-3. On receiving the control message, compares the computed hash against the expected hash sent by the CLI. Returns `codes.DataLoss` on mismatch.
+3. On receiving the control message, compares the computed hash against the expected hash. Returns `codes.DataLoss` on mismatch.
 4. Resolves the current executable path (following symlinks).
 5. Writes the new binary to `<execPath>.update`.
 6. Renames `<execPath>` to `<execPath>.backup`.
@@ -45,13 +45,7 @@ On the next startup, `CommitMenderUpdate` runs `mender-update commit` to confirm
 
 ### Rollback
 
-If the atomic rename fails, the backup is restored:
-
-```
-os.Rename(<execPath>.backup, <execPath>)
-```
-
-The backup file itself is not deleted automatically until the next startup (48-hour grace period), so a manual rollback is possible if needed:
+If the atomic rename fails, the backup is restored automatically. A manual rollback is also possible during the 48-hour backup retention window:
 
 ```sh
 # On the device:
@@ -76,7 +70,7 @@ wendy device update --binary ./wendy-agent-linux-arm64
 
 ## CLI update check
 
-The CLI (`wendy`) itself checks GitHub for newer CLI releases once every 24 hours. The check runs in a background goroutine after each command. If a newer version is found, a notice is printed after the command completes:
+The CLI (`wendy`) checks GitHub for newer CLI releases once every 24 hours. The check runs in a background goroutine after each command. If a newer version is found, a notice is printed after the command completes:
 
 ```
 Update available: v0.6.0 (you have v0.5.0)
@@ -103,7 +97,6 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 # Replace <device-address> with the target device IP or hostname.
-# If running this timer on the device itself, use 127.0.0.1.
 ExecStart=/usr/bin/wendy --device <device-address> device update
 ```
 
@@ -136,8 +129,6 @@ systemctl list-timers wendy-agent-update*
 
 ### Disable auto-updates
 
-Simply disable or stop the timer:
-
 ```sh
 sudo systemctl disable --now wendy-agent-update.timer
 ```
@@ -148,6 +139,6 @@ sudo systemctl disable --now wendy-agent-update.timer
 
 The `UpdateOS` RPC accepts a Mender artifact URL, runs `mender-update install <url>`, streams progress, and reboots on completion. The CLI exposes this via `wendy device os-update`.
 
-The agent detects the `mender-update` (or legacy `mender`) binary by searching standard `PATH` locations at startup. When found, `mender` is listed in the `featureset` field of `GetAgentVersionResponse`. The feature is silently unavailable on devices without Mender installed.
+The agent detects the `mender-update` (or legacy `mender`) binary at startup by searching standard `PATH` locations. When found, `mender` appears in the `featureset` field of `GetAgentVersionResponse`.
 
 On NVIDIA Jetson devices, the agent calls `nvbootctrl` to enable rootfs A/B redundancy before running Mender if it is not already enabled.

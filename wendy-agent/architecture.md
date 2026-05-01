@@ -27,6 +27,8 @@ When `wendy-agent` starts it performs the following steps in order:
 
 ## Component map
 
+The following components are initialised in `go/cmd/wendy-agent/main.go`:
+
 ```
 wendy-agent
 ├── gRPC servers
@@ -36,7 +38,7 @@ wendy-agent
 ├── OTEL HTTP receiver :4318  ← always on
 ├── Embedded OCI registry :5000 ← Linux/containerd only
 │
-├── Services (registered on plaintext + mTLS servers)
+├── Services (registered on both plaintext and mTLS servers)
 │   ├── WendyAgentService       – WiFi, Bluetooth, agent update, OS update, hardware
 │   ├── WendyContainerService   – container lifecycle, layers, volumes, stats
 │   ├── WendyAudioService       – audio device listing and streaming
@@ -44,21 +46,18 @@ wendy-agent
 │   ├── WendyProvisioningService – device enrollment with Wendy Cloud
 │   └── WendyTelemetryService   – streaming OTLP logs, metrics, traces
 │
-├── Internal subsystems
-│   ├── containerd client       – container creation, snapshots, image import
-│   ├── OCI entitlements        – GPU, audio, video, Bluetooth, USB, I2C, GPIO, SPI, persist
-│   ├── Container monitor       – watches running containers, restarts on crash
-│   ├── Container log manager   – multiplexes container stdout/stderr to telemetry
-│   ├── Network manager (nmcli) – WiFi scan, connect, disconnect, priorities
-│   ├── Bluetooth manager (BlueZ) – BLE peripheral advertising, device pairing
-│   ├── D-Bus proxy manager     – xdg-dbus-proxy sandboxing for BT containers
-│   ├── Tunnel broker client    – persistent gRPC presence stream to Wendy Cloud
-│   ├── Telemetry broadcaster   – fan-out for OTLP logs/metrics/traces
-│   ├── CDI (NVIDIA)            – ensures nvidia CDI spec for GPU containers
-│   └── Config partition        – applies overlay from /etc/wendy-agent
-│
-└── Utility subcommand
-    └── wendy-agent utils open-browser <url>
+└── Internal subsystems
+    ├── containerd client       – container creation, snapshots, image import
+    ├── OCI entitlements        – GPU, audio, video, Bluetooth, USB, I2C, GPIO, SPI, persist
+    ├── Container monitor       – watches running containers (15 s poll interval)
+    ├── Container log manager   – multiplexes container stdout/stderr to telemetry broadcaster
+    ├── Network manager (nmcli) – WiFi scan, connect, disconnect, priorities
+    ├── Bluetooth manager (BlueZ) – BLE peripheral advertising, device pairing
+    ├── D-Bus proxy manager     – xdg-dbus-proxy sandboxing for Bluetooth containers
+    ├── Tunnel broker client    – persistent gRPC presence stream to Wendy Cloud
+    ├── Telemetry broadcaster   – fan-out for OTLP logs/metrics/traces
+    ├── CDI (NVIDIA)            – ensures nvidia CDI spec for GPU containers
+    └── Config partition        – applies overlay from /etc/wendy-agent
 ```
 
 ## Security model
@@ -68,9 +67,9 @@ The agent uses two separate gRPC listeners to enforce the provisioning boundary:
 | Listener | Port | TLS | Purpose |
 |---|---|---|---|
 | Plaintext | `50051` (default) | None | Pre-provisioning only. Shut down automatically once the device enrolls. |
-| mTLS | `50052` (default, agentPort + 1) | Mutual TLS with device certificate | Post-provisioning. Carries all six services. |
-| OTEL gRPC | `4317` | None | OpenTelemetry collector endpoint for container workloads. |
-| OTEL HTTP | `4318` | None | OTLP/HTTP endpoint (protobuf and JSON). |
+| mTLS | `50052` (default, agentPort + 1) | Mutual TLS with device certificate | Post-provisioning. All six services are registered here. |
+| OTEL gRPC | `4317` | None | OpenTelemetry collector endpoint for container workloads. Always on. |
+| OTEL HTTP | `4318` | None | OTLP/HTTP endpoint (protobuf and JSON). Always on. |
 | OCI Registry | `5000` | HTTP pre-provisioning, HTTPS post-provisioning | Development container image push target. |
 
 When `StartProvisioning` completes successfully, the agent:
@@ -82,7 +81,7 @@ When `StartProvisioning` completes successfully, the agent:
 5. Starts BLE advertising and the mTLS-protected L2CAP server.
 6. Connects to the Wendy Cloud tunnel broker.
 
-Provisioning state (certificates, org/asset IDs) is persisted to `/etc/wendy-agent/provisioning.json` (mode `0600`). Individual PEM files are written alongside it for services (such as the OCI registry) that read certificates from the filesystem.
+Provisioning state (certificates, org/asset IDs) is persisted to `/etc/wendy-agent/provisioning.json` (mode `0600`). Individual PEM files are written alongside it for services that read certificates from the filesystem.
 
 ## Port summary
 
@@ -102,11 +101,11 @@ After provisioning, the tunnel broker client (`services.TunnelBrokerClient`) ope
 
 ## mDNS advertisement
 
-On provisioned devices the agent uses Avahi to advertise `_wendyos._udp` on the mTLS port. Pre-provisioning the Avahi service file (installed at `/etc/avahi/services/wendy-agent.service`) advertises port `50051`. The CLI discovers local devices via this mDNS service type.
+On provisioned devices the agent uses Avahi to advertise `_wendyos._udp` on the mTLS port. Pre-provisioning, the Avahi service file advertises port `50051`. The CLI discovers local devices via this mDNS service type.
 
 ## OCI entitlements
 
-Container specs are built by the agent via the `oci` package. The `ApplyEntitlements` function maps `wendy.json` entitlement declarations to OCI spec modifications:
+Container specs are built by the agent via the `oci` package (`go/internal/agent/oci/`). The `ApplyEntitlements` function maps `wendy.json` entitlement declarations to OCI spec modifications:
 
 | Entitlement | Effect |
 |---|---|

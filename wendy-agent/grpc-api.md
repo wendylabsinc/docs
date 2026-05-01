@@ -22,7 +22,7 @@ General device management: agent version, WiFi, Bluetooth, hardware, agent self-
 | Method | Type | Description |
 |---|---|---|
 | `GetAgentVersion` | Unary | Returns agent version, OS, CPU architecture, WendyOS version, device type, GPU info (vendor, JetPack, CUDA), storage medium, and a `featureset` list (`gpu`, `audio`, `bluetooth`, `video`, `camera`, `mender`). |
-| `UpdateAgent` | Bidi-stream | Receives the new binary in chunks, then a control message with expected SHA-256. Verifies the hash, atomically replaces the binary, and exits (systemd restarts the agent). |
+| `UpdateAgent` | Bidi-stream | Receives the new binary in chunks, then a control message with expected SHA-256. Verifies the hash, atomically replaces the binary, and exits so systemd restarts the agent. |
 | `UpdateOS` | Server-stream | Downloads a Mender artifact from a URL, runs `mender-update install`, streams progress phases (`downloading`, `installing`, `finalizing`) and percent, then reboots. |
 | `RunContainer` | Bidi-stream | **Deprecated.** Use `WendyContainerService`. |
 | `ListWiFiNetworks` | Unary | Returns visible SSIDs with signal strength, security type, known/connected flags, and RSSI. |
@@ -55,7 +55,7 @@ Full container lifecycle management backed by containerd.
 | `WriteLayer` | Client-stream | Uploads a single OCI layer (identified by digest). |
 | `CreateContainer` | Unary | Creates a container from a previously written image. |
 | `CreateContainerWithProgress` | Server-stream | Like `CreateContainer` but streams unpacking progress (phase, layer index, size, snapshot-reuse flag). |
-| `RunContainer` | Server-stream | Runs a container from uploaded layers (streams `Started` then stdout/stderr). |
+| `RunContainer` | Server-stream | Runs a container from uploaded layers; streams `Started` then stdout/stderr. |
 | `StartContainer` | Server-stream | Starts a previously created container by name; streams stdout/stderr. |
 | `AttachContainer` | Bidi-stream | Attaches to a running container (sends stdin, receives stdout/stderr). |
 | `StopContainer` | Unary | Stops a named container. |
@@ -122,7 +122,7 @@ Streams OTLP telemetry from the device to CLI clients. Data originates from:
 
 | Method | Type | Description |
 |---|---|---|
-| `StreamLogs` | Server-stream | Streams `ExportLogsServiceRequest` OTLP envelopes. Filterable by `service_name`, `min_severity` (OTLP numeric level), and `app_name`. |
+| `StreamLogs` | Server-stream | Streams `ExportLogsServiceRequest` OTLP envelopes. Filterable by `service_name`, `min_severity`, and `app_name`. |
 | `StreamMetrics` | Server-stream | Streams `ExportMetricsServiceRequest` OTLP envelopes. Filterable by `service_name`, `metric_name_prefix`, and `app_name`. |
 | `StreamTraces` | Server-stream | Streams `ExportTraceServiceRequest` OTLP envelopes. Filterable by `service_name`, `app_name`, and `span_name_prefix`. |
 
@@ -136,13 +136,13 @@ Bidirectional file synchronisation used by the CLI to push source trees to a run
 
 | Method | Type | Description |
 |---|---|---|
-| `SyncFiles` | Bidi-stream | Client sends `FileSyncStart` (with a manifest), then `FileSyncChunk`/`FileSyncCommit` pairs for changed files, optional `FileSyncChmod` for mode-only changes, and optional `FileSyncDelete` for stale files. Agent replies with `FileSyncManifest` (its current files), `FileSyncAck` per received file, then `FileSyncComplete`. |
+| `SyncFiles` | Bidi-stream | Client sends `FileSyncStart` (with a manifest), then `FileSyncChunk`/`FileSyncCommit` pairs for changed files, optional `FileSyncChmod` for mode-only changes, and optional `FileSyncDelete` for stale files. Agent replies with `FileSyncManifest`, `FileSyncAck` per file, then `FileSyncComplete`. |
 
 ---
 
 ## OpenTelemetry receiver endpoints
 
-The agent also registers the standard OTLP collector services on the OTEL gRPC server (`:4317`):
+The agent registers the standard OTLP collector services on a dedicated gRPC server (`:4317`):
 
 | Service | Proto package |
 |---|---|
@@ -156,4 +156,4 @@ An HTTP/protobuf receiver on `:4318` accepts the same three signal types at the 
 
 ## Bluetooth L2CAP channel
 
-On provisioned devices the agent additionally exposes a Bluetooth L2CAP server. It accepts `BluetoothCommand` protobuf messages and returns `BluetoothResponse` messages (defined in `wendy_agent_v1_bluetooth.proto`). The commands mirror the gRPC WiFi, Bluetooth, and app management methods, allowing the CLI to control the device over BLE before a network connection is established.
+On provisioned devices the agent additionally exposes a Bluetooth L2CAP server protected by the device mTLS certificate. It accepts `BluetoothCommand` protobuf messages and returns `BluetoothResponse` messages (defined in `wendy_agent_v1_bluetooth.proto`). The commands mirror the gRPC WiFi, Bluetooth, and app management methods, allowing the CLI to control the device over BLE before a network connection is established.

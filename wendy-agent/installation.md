@@ -100,15 +100,13 @@ sudo install -m 755 "wendy-agent-linux-${ARCH}/wendy-agent" /usr/local/bin/wendy
 
 ### Checksum verification
 
-SHA-256 verification is performed automatically when the CLI uses `wendy device update` — the CLI computes `sha256.Sum256` over the binary data and sends it to the agent's `UpdateAgent` RPC, which rejects the update if the hashes do not match.
+SHA-256 verification is performed automatically when the CLI uses `wendy device update`. The CLI computes `sha256.Sum256` over the binary data and sends the hash to the agent's `UpdateAgent` RPC, which rejects the update if the hashes do not match.
 
-For manual verification, download the tarball and compute its SHA-256:
+For manual verification, compute the SHA-256 of the downloaded tarball and compare it against the expected hash published in the release notes or CI artifacts:
 
 ```sh
 sha256sum wendy-agent-linux-${ARCH}-${VERSION#v}.tar.gz
 ```
-
-Compare the output against the expected hash from the release notes or CI artifacts.
 
 ## Service configuration
 
@@ -146,7 +144,7 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 ```
 
-The unit requires `containerd.service` because `wendy-agent` connects to the containerd socket at startup. If containerd is absent the agent starts anyway with container features disabled (a warning is logged).
+The unit requires `containerd.service`. If containerd is absent the agent starts anyway with container features disabled (a warning is logged).
 
 ### Environment file (`/etc/default/wendy-agent`)
 
