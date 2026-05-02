@@ -42,8 +42,7 @@ sudo tee /usr/lib/systemd/system/wendy-agent.service <<'EOF'
 [Unit]
 Description=Wendy Agent
 After=network-online.target dbus.service containerd.service
-Wants=network-online.target
-Requires=containerd.service
+Wants=network-online.target containerd.service
 
 [Service]
 Type=simple
@@ -100,8 +99,6 @@ After a successful import, `/var/lib/wendyos/dev-registry-imported` is created. 
 
 ```sh
 sudo ctr -n default images import /usr/share/wendyos/offline-images/containerd-registry.tar
-sudo ctr -n default images tag ghcr.io/wendylabsinc/containerd-registry:1.2.0 wendyos/containerd-registry:v1.2.0
-sudo ctr -n default images label wendyos/containerd-registry:v1.2.0 containerd.io/gc.root=true
 ```
 
 ---
@@ -130,6 +127,8 @@ scp myapp.tar user@device:/tmp/
 ```sh
 sudo ctr -n default images import /tmp/myapp.tar
 ```
+
+If the device is connected over USB, you can also use `wendy run` to deploy the application directly without manually transferring and importing the image first.
 
 ### Layer deduplication
 

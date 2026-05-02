@@ -54,7 +54,19 @@ In this mode the host receives an address from `10.42.0.2`–`10.42.0.5` and the
 
 ## Host-Side Setup
 
-The `setup-host-usb-link-local.sh` script in the `wendyos` repository configures the host for link-local addressing on USB gadget interfaces. It supports both NetworkManager and systemd-networkd:
+### Mode 1 host setup — NetworkManager shared (recommended)
+
+Run on the host once the NCM interface (`enxXXXXXXXXXXXX`) appears:
+
+```sh
+nmcli connection add type ethernet ifname <enxXXX> ipv4.method shared
+```
+
+This activates a built-in dnsmasq instance, assigns `10.42.0.1/24` to the host, and enables NAT so the device can reach the internet through the host.
+
+### Alternative — link-local addressing
+
+The `setup-host-usb-link-local.sh` script in the `wendyos` repository configures the host for link-local addressing instead. This is useful when internet sharing is not needed. It supports both NetworkManager and systemd-networkd:
 
 **NetworkManager** — installs `/etc/NetworkManager/system-connections/wendyos-usb.nmconnection`:
 ```ini
@@ -75,8 +87,6 @@ Driver=cdc_ncm cdc_ether
 [Network]
 LinkLocalAddressing=ipv4
 ```
-
-For internet sharing, use `nmcli connection add type ethernet ifname <enxXXX> ipv4.method shared` on the host, which activates a built-in dnsmasq assigning `10.42.0.1/24` and enabling NAT.
 
 ## Verifying DHCP
 

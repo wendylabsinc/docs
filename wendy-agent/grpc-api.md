@@ -7,7 +7,7 @@ All proto files live under `Proto/wendy/agent/services/v1/` in the `wendy-agent`
 | Port | Transport | When active |
 |---|---|---|
 | `50051` | Plaintext gRPC | Pre-provisioning only. Shut down automatically once the device enrolls. |
-| `50052` | Mutual-TLS gRPC | Post-provisioning. All six services are registered here. |
+| `50052` | Mutual-TLS gRPC | Post-provisioning. All seven services are registered here. |
 
 `50051` is the default; override with `WENDY_AGENT_PORT`. The mTLS port is always `WENDY_AGENT_PORT + 1`.
 

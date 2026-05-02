@@ -63,7 +63,7 @@ IPv6 link-local addresses on `usb0` are derived automatically from the MAC addre
 With standard EUI-64 (RFC 4291), the process is:
 1. Split the 6-byte MAC at the middle: `AA:BB:CC | DD:EE:FF`
 2. Insert `FF:FE` in the middle: `AA:BB:CC:FF:FE:DD:EE:FF`
-3. Flip bit 6 of the first byte (Universal/Local bit): `AA XOR 0x02`
+3. Flip the Universal/Local bit of the first byte: `AA XOR 0x02` (RFC 4291 calls this "bit 6" using MSB-first numbering; IEEE 802 calls it "bit 1" using LSB-first numbering — both refer to the `0x02` mask)
 4. Prefix with `fe80::`: `fe80::aabb:ccff:fedd:eeff/64`
 
 With `stable-privacy` (RFC 7217), the address is derived from a hash of the interface name, prefix, and a secret — this provides better privacy than EUI-64 while remaining stable for the same interface on the same machine. The exact address differs from raw EUI-64 but is always in the `fe80::/64` range.
@@ -74,7 +74,7 @@ ip -6 addr show usb0
 # Example: inet6 fe80::a4b2:e1ff:fe9d:3c1a/64 scope link
 ```
 
-The radvd configuration on WendyOS advertises the `fe80::/64` prefix so the host also self-configures a link-local address on its NCM adapter. See [IPv6 Router Advertisements](./ipv6-ra.md).
+WendyOS runs radvd on `usb0` to signal IPv6 availability; the host self-assigns its link-local address independently. See [IPv6 Router Advertisements](./ipv6-ra.md).
 
 ## Serial Number Sources
 

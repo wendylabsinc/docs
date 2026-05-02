@@ -9,7 +9,7 @@ WendyOS device                          Host computer
 ───────────────────────────────         ───────────────────────────────
   usb0 (NCM gadget interface)  ←USB→    enxXXXXXXXXXXXX (CDC NCM)
   IPv4: DHCP client (or shared)         IPv4: 10.42.0.1/24 (NM shared)
-  IPv6: link-local (SLAAC)              IPv6: link-local (SLAAC)
+  IPv6: link-local (auto)               IPv6: link-local (auto)
   mDNS: _wendyos._udp (Avahi)           mDNS discovery (avahi-browse/dns-sd)
   /dev/ttyGS0 (ACM serial)     ←USB→    /dev/ttyACM0 (serial console)
 ```
@@ -30,8 +30,8 @@ WendyOS device                          Host computer
 
 - [USB NCM Gadget](./usb-ncm.md) — How the USB gadget is constructed and initialized
 - [MAC Address Generation](./mac-addresses.md) — Deterministic MAC generation and IPv6 link-local formation
-- [IPv4 DHCP](./ipv4-dhcp.md) — DHCP server configuration for `usb0`
-- [IPv6 Router Advertisements](./ipv6-ra.md) — radvd configuration and SLAAC on `usb0`
+- [IPv4 DHCP](./ipv4-dhcp.md) — DHCP client and server modes for `usb0`, and host-side setup
+- [IPv6 Router Advertisements](./ipv6-ra.md) — radvd configuration for IPv6 link-local on `usb0`
 - [mDNS / Avahi](./mdns.md) — Service broadcasting, hostname generation, and host-side discovery
 - [Troubleshooting](./troubleshooting.md) — Diagnosing common networking problems
 
@@ -43,7 +43,7 @@ WendyOS device                          Host computer
 | Host IPv4 when using NetworkManager shared | `10.42.0.1/24` |
 | dnsmasq pool (on-device DHCP server mode) | `10.42.0.2`–`10.42.0.5` |
 | IPv6 | Link-local only (`fe80::/64`, derived from MAC via EUI-64) |
-| mDNS service | `_wendyos._udp`, port `50051` |
+| mDNS service | `_wendyos._udp`, port `50051` pre-provisioning / `50052` post-provisioning |
 | mDNS hostname | `wendyos-<device-name>.local` or `wendyos-<short-uuid>.local` |
 
 ## Platform Notes

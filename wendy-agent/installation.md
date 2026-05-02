@@ -110,11 +110,11 @@ sha256sum wendy-agent-linux-${ARCH}-${VERSION#v}.tar.gz
 
 ## Service configuration
 
-The install script and package post-install hooks create the following layout:
+The install script and package post-install hooks create the following layout (package installs use `/usr/bin/wendy-agent`; tarball installs use `/usr/local/bin/wendy-agent` — update the `ExecStart` path in the unit if installing manually):
 
 | Path | Description |
 |---|---|
-| `/usr/bin/wendy-agent` | Agent binary |
+| `/usr/bin/wendy-agent` | Agent binary (package install; `/usr/local/bin/wendy-agent` for tarball) |
 | `/usr/lib/systemd/system/wendy-agent.service` | systemd unit |
 | `/etc/default/wendy-agent` | Environment file (sourced by the unit) |
 | `/etc/wendy-agent/config.json` | Placeholder JSON config (`{}`) |
@@ -128,8 +128,7 @@ The install script and package post-install hooks create the following layout:
 [Unit]
 Description=Wendy Agent
 After=network-online.target dbus.service containerd.service
-Wants=network-online.target
-Requires=containerd.service
+Wants=network-online.target containerd.service
 
 [Service]
 Type=simple
@@ -144,7 +143,7 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 ```
 
-The unit requires `containerd.service`. If containerd is absent the agent starts anyway with container features disabled (a warning is logged).
+The unit uses `Wants=containerd.service`. If containerd is absent the agent starts anyway with container features disabled (a warning is logged).
 
 ### Environment file (`/etc/default/wendy-agent`)
 

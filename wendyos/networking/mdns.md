@@ -14,21 +14,23 @@ The Avahi service definition is installed at `/etc/avahi/services/wendyos-mdns.s
   <service protocol="any">
     <type>_wendyos._udp</type>
     <port>50051</port>
-    <txt-record>id=<device-uuid></txt-record>
-    <txt-record>name=<device-name></txt-record>
-    <txt-record>displayname=<Display Name></txt-record>
+    <txt-record>id=WENDY_DEVICE_ID</txt-record>
+    <txt-record>name=WENDY_DEVICE_NAME</txt-record>
+    <txt-record>displayname=WENDY_DISPLAY_NAME</txt-record>
   </service>
 </service-group>
 ```
 
+The placeholder tokens (`WENDY_DEVICE_ID` etc.) are replaced at boot by `update-mdns-uuid.sh` (see below).
+
 - **Service type**: `_wendyos._udp`
-- **Port**: `50051` (the wendy-agent gRPC port)
+- **Port**: `50051` pre-provisioning; updated to `50052` (mTLS) automatically once the device enrolls
 - **Instance name**: The device hostname (`%h` expands to the current hostname as set by Avahi)
-- **TXT records**: `id`, `name`, `displayname` (injected at runtime by `update-mdns-uuid.sh`)
+- **TXT records**: `id`, `name`, `displayname` (placeholder tokens replaced at boot by `update-mdns-uuid.sh`)
 
 ## Dynamic UUID Injection
 
-At boot, the placeholders `WENDY_DEVICE_ID`, `WENDY_DEVICE_NAME`, and `WENDY_DISPLAY_NAME` in the service file are replaced by `update-mdns-uuid.sh` (from `recipes-core/wendyos-identity/`):
+At boot, `update-mdns-uuid.sh` (from `recipes-core/wendyos-identity/`):
 
 ```bash
 UUID=$(cat /etc/wendyos/device-uuid)

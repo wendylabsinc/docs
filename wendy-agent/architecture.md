@@ -44,7 +44,8 @@ wendy-agent
 │   ├── WendyAudioService       – audio device listing and streaming
 │   ├── WendyVideoService       – video device listing and streaming
 │   ├── WendyProvisioningService – device enrollment with Wendy Cloud
-│   └── WendyTelemetryService   – streaming OTLP logs, metrics, traces
+│   ├── WendyTelemetryService   – streaming OTLP logs, metrics, traces
+│   └── WendyFileSyncService    – bidirectional file sync from CLI to containers
 │
 └── Internal subsystems
     ├── containerd client       – container creation, snapshots, image import
@@ -67,9 +68,9 @@ The agent uses two separate gRPC listeners to enforce the provisioning boundary:
 | Listener | Port | TLS | Purpose |
 |---|---|---|---|
 | Plaintext | `50051` (default) | None | Pre-provisioning only. Shut down automatically once the device enrolls. |
-| mTLS | `50052` (default, agentPort + 1) | Mutual TLS with device certificate | Post-provisioning. All six services are registered here. |
-| OTEL gRPC | `4317` | None | OpenTelemetry collector endpoint for container workloads. Always on. |
-| OTEL HTTP | `4318` | None | OTLP/HTTP endpoint (protobuf and JSON). Always on. |
+| mTLS | `50052` (default, agentPort + 1) | Mutual TLS with device certificate | Post-provisioning. All seven services are registered here. |
+| OTEL gRPC | `4317` | None | OpenTelemetry collector endpoint for container workloads. Localhost only. Always on. |
+| OTEL HTTP | `4318` | None | OTLP/HTTP endpoint (protobuf and JSON). Localhost only. Always on. |
 | OCI Registry | `5000` | HTTP pre-provisioning, HTTPS post-provisioning | Development container image push target. |
 
 When `StartProvisioning` completes successfully, the agent:
@@ -89,8 +90,8 @@ Provisioning state (certificates, org/asset IDs) is persisted to `/etc/wendy-age
 |---|---|---|
 | `50051` | gRPC (plaintext) | Agent API – pre-provisioning |
 | `50052` | gRPC (mTLS) | Agent API – post-provisioning |
-| `4317` | gRPC | OTLP log/metric/trace receiver |
-| `4318` | HTTP | OTLP/HTTP receiver |
+| `4317` | gRPC | OTLP log/metric/trace receiver (localhost only) |
+| `4318` | HTTP | OTLP/HTTP receiver (localhost only) |
 | `5000` | HTTP or HTTPS | Embedded OCI registry |
 
 All ports can be overridden with environment variables (`WENDY_AGENT_PORT`, `WENDY_OTEL_PORT`, `WENDY_OTEL_HTTP_PORT`, `WENDY_REGISTRY_ADDR`).
