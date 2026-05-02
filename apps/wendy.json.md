@@ -99,6 +99,7 @@ Python-specific settings.
 | Field | Description |
 |-------|-------------|
 | `python.sourceRoot` | Path to the Python source root directory |
+| `python.container.sourceRoot` | Path to the Python source root inside the container image |
 
 ### `$schema`
 
@@ -229,6 +230,26 @@ HID input device access (barcode scanners, keyboards, etc.).
 ```json
 { "type": "input" }
 ```
+
+### `mcp`
+
+Registers the container as a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server. When this entitlement is present the wendy agent:
+
+1. Stores the port in the container's `sh.wendy/mcp.port` label.
+2. Exposes the container's tools through `wendy mcp serve` so that AI assistants (Claude Desktop, etc.) can call them automatically.
+3. Makes the port available via the `StreamMCP` gRPC API for secure proxying.
+
+```json
+{ "type": "mcp", "port": 3000 }
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `port` | integer | TCP port on which the container's MCP server listens (required). |
+
+The container must serve the [MCP Streamable HTTP](https://modelcontextprotocol.io/specification) transport on `0.0.0.0:<port>`. See the [MCPExample](../Examples/MCPExample/README.md) for a complete Python reference implementation.
+
+> **Note:** The `mcp` entitlement is typically combined with `{ "type": "network", "mode": "host" }` so that the agent can reach the container's MCP port over loopback.
 
 ---
 
