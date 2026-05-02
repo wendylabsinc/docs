@@ -232,4 +232,12 @@ HID input device access (barcode scanners, keyboards, etc.).
 
 ---
 
+## Compose-based projects
+
+If your project uses a `docker-compose.yml` instead of a single container, you don't need a `wendy.json`. `wendy run` detects the compose file automatically and each service gets a generated app config derived from its `ports`, `network_mode`, and `volumes` declarations.
+
+See [Multi-Service Apps with Docker Compose](./compose.md) for details.
+
+---
+
 > **Deprecated:** `{ "type": "video" }` — use `camera` instead.
