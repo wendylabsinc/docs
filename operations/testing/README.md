@@ -1,72 +1,68 @@
-# Integration Testing
+# Integration Tests
 
-This document describes the CI integration test pipeline for WendyOS and wendy-agent.
+The Wendy CI integration test suite runs end-to-end tests against real devices (or device emulators) to verify that `wendy run` correctly builds, deploys, and operates apps.
 
-## Overview
+Tests live under `.github/ci-tests/` and are executed by `go/scripts/test-ci.sh`.
 
-Integration tests run against real hardware devices discovered on the CI LAN. The pipeline has three jobs:
+## Available tests
 
-| Job | Runner | Description |
-|-----|--------|-------------|
-| `discover` | ubuntu-latest | Discovers LAN devices via `wendy discover` |
-| `integration-test-macos` | macos | Builds `wendy` and runs the full test suite on discovered devices |
-| `integration-test-linux` | ubuntu-latest | Builds `wendy` and runs the Linux-compatible subset of the test suite |
+| Test name | Language | What it verifies |
+|-----------|----------|-----------------|
+| `swift-hello` | Swift | Basic Swift app builds and runs (macOS only) |
+| `swift-network` | Swift | Swift app with `network` entitlement (macOS only) |
+| `swift-bluetooth` | Swift | Swift app with `bluetooth` entitlement (macOS only) |
+| `python-hello` | Python | Basic Python app builds and runs |
+| `python-network` | Python | Python app with `network` entitlement |
+| `python-gpu` | Python | Python app with `gpu` entitlement |
+| `python-bluetooth` | Python | Python app with `bluetooth` entitlement |
+| `python-no-network` | Python | Verifies network is blocked **without** `network` entitlement |
+| `python-no-bluetooth` | Python | Verifies bluetooth is blocked **without** `bluetooth` entitlement |
+| `python-no-ptrace` | Python | Verifies `ptrace` syscall is blocked by the default seccomp profile (WDY-1099) |
+| `python-no-unshare` | Python | Verifies `unshare` syscall is blocked by the default seccomp profile (WDY-1099) |
+| `compose-hello` | Compose | `docker-compose` multi-service deployment with `build:` Dockerfiles |
+| `compose-images` | Compose | `docker-compose` multi-service deployment using public images |
+| `otel-localhost-only` | Python | Verifies OTEL receivers (ports 4317/4318) are not reachable from the network |
 
-> **Note:** The `summary` job was removed. Pass/fail status is determined directly from the `integration-test-macos` and `integration-test-linux` job results.
+> **Note:** Swift tests (`swift-*`) are skipped automatically on Linux runners because Swift container builds require macOS.
 
-## Test cases
-
-The following named test cases are registered in the pipeline:
-
-| Test | macOS | Linux | Description |
-|------|-------|-------|-------------|
-| `swift-hello` | ✅ | ❌ | Basic Swift app smoke test |
-| `swift-network` | ✅ | ❌ | Swift app with network entitlement |
-| `swift-bluetooth` | ✅ | ❌ | Swift app with Bluetooth entitlement |
-| `python-hello` | ✅ | ✅ | Basic Python app smoke test |
-| `python-network` | ✅ | ✅ | Python app with network entitlement |
-| `python-gpu` | ✅ | ✅ | Python app with GPU entitlement |
-| `python-bluetooth` | ✅ | ✅ | Python app with Bluetooth entitlement |
-| `python-no-network` | ✅ | ✅ | Python app with networking disabled |
-| `python-no-bluetooth` | ✅ | ✅ | Python app with Bluetooth disabled |
-| `otel-localhost-only` | ✅ | ✅ | Verifies OTEL receivers bind to 127.0.0.1 only (WDY-1097, WDY-1100) |
-
-Swift tests are excluded from the default Linux suite because Swift container builds require macOS. They can still be run manually on Linux by specifying them via the `INPUT_TESTS` workflow input — the Linux runner no longer skips them automatically when explicitly requested.
-
-## Device discovery
-
-The `discover` job runs `wendy discover --json --timeout 10s` to find devices on the LAN. Discovery failures are non-fatal (`|| true`); if no devices are found the test jobs exit cleanly with a success status.
-
-## Running tests
-
-### Default (all registered tests)
-
-Trigger the workflow without inputs. The macOS job runs all tests; the Linux job runs all tests except `swift-*`.
-
-### Selective runs (`INPUT_TESTS`)
-
-Provide a comma-separated list of test names via the `INPUT_TESTS` workflow input:
-
-```
-python-hello, otel-localhost-only
-```
-
-Each name is trimmed of whitespace. If all provided test names resolve to an empty set (e.g. no devices were found), the job exits successfully without running anything.
-
-## Test script
-
-Tests are executed via `scripts/test-ci.sh`. The script is invoked once per discovered device:
+## Running the suite locally
 
 ```sh
-scripts/test-ci.sh $TEST_ARGS -h "$device"
+cd go
+scripts/test-ci.sh -h <device-hostname>
 ```
 
-where `TEST_ARGS` contains one `-t <name>` flag per test case and `-w <absolute-path-to-wendy-binary>`.
+Run a specific subset of tests with one or more `-t` flags:
 
-The wendy binary path is resolved to an absolute path at the start of the job to avoid working-directory-relative path issues.
+```sh
+scripts/test-ci.sh -h <device> -t python-hello -t python-no-ptrace
+```
 
-## `otel-localhost-only` test
+Run all tests:
 
-Added in PR #598 to provide regression coverage for [WDY-1097 and WDY-1100](https://github.com/wendylabsinc/wendy-agent/pull/597). This test verifies that the OpenTelemetry (OTEL) receivers inside wendy-agent bind exclusively to `127.0.0.1` and are not reachable on external interfaces. It runs on both macOS and Linux CI runners.
+```sh
+scripts/test-ci.sh -h <device>
+```
 
-See [wendy-agent/otel.md](../../wendy-agent/otel.md) for documentation on the OTEL integration.
+## Seccomp tests (WDY-1099)
+
+`python-no-ptrace` and `python-no-unshare` are **negative tests** — they assert that certain dangerous syscalls are denied inside Wendy app containers by the default seccomp profile applied by `wendy-agent`.
+
+### `python-no-ptrace`
+
+Calls `ptrace(PTRACE_TRACEME, 0, 0, 0)` via `ctypes` and expects the call to be denied (`EPERM`/`EACCES`). A successful `ptrace` call would indicate the seccomp profile was not applied.
+
+### `python-no-unshare`
+
+Calls `unshare(CLONE_NEWUSER)` via `ctypes` and expects the call to fail. `unshare(CLONE_NEWUSER)` is the first step in a common unprivileged container-escape chain. Denial confirms the seccomp profile blocks the `unshare` syscall entirely.
+
+Both tests exit `0` on a correct denial and `1` if the syscall unexpectedly succeeds.
+
+## CI matrix
+
+The workflow (`integration-tests.yml`) runs tests in parallel across available devices, one `docker buildx` builder instance per device:
+
+- **macOS runners:** full suite including `swift-*` tests.
+- **Linux runners:** Python and compose tests only; `swift-*` tests are skipped automatically.
+
+Each parallel job uses a dedicated buildx builder (`wendy-0`, `wendy-1`, …) named after its index in the device list. The builder is removed after the job completes regardless of pass/fail status.
