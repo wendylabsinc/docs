@@ -29,6 +29,8 @@ The following named test cases are registered in the pipeline:
 | `python-bluetooth` | ✅ | ✅ | Python app with Bluetooth entitlement |
 | `python-no-network` | ✅ | ✅ | Python app with networking disabled |
 | `python-no-bluetooth` | ✅ | ✅ | Python app with Bluetooth disabled |
+| `python-no-ptrace` | ✅ | ✅ | Verifies `ptrace` syscall is blocked by the default seccomp profile (WDY-1099) |
+| `python-no-unshare` | ✅ | ✅ | Verifies `unshare` syscall is blocked by the default seccomp profile (WDY-1099) |
 | `otel-localhost-only` | ✅ | ✅ | Verifies OTEL receivers bind to 127.0.0.1 only (WDY-1097, WDY-1100) |
 
 Swift tests are excluded from the default Linux suite because Swift container builds require macOS. They can still be run manually on Linux by specifying them via the `INPUT_TESTS` workflow input — the Linux runner no longer skips them automatically when explicitly requested.
@@ -64,6 +66,18 @@ scripts/test-ci.sh $TEST_ARGS -h "$device"
 where `TEST_ARGS` contains one `-t <name>` flag per test case and `-w <absolute-path-to-wendy-binary>`.
 
 The wendy binary path is resolved to an absolute path at the start of the job to avoid working-directory-relative path issues.
+
+## `python-no-ptrace` and `python-no-unshare` tests
+
+Added in wendy-agent#603 to provide regression coverage for [WDY-1099](https://github.com/wendylabsinc/wendy-agent/pull/600). These are **negative tests** — they assert that certain dangerous syscalls are denied inside Wendy app containers by the default seccomp profile.
+
+`python-no-ptrace` calls `ptrace(PTRACE_TRACEME, 0, 0, 0)` via `ctypes` and expects `EPERM`/`EACCES`. A successful call would indicate the seccomp profile was not applied.
+
+`python-no-unshare` calls `unshare(CLONE_NEWUSER)` via `ctypes` and expects failure. `unshare(CLONE_NEWUSER)` is the first step in a common unprivileged container-escape chain; denial confirms the seccomp profile blocks the `unshare` syscall entirely.
+
+Both tests exit `0` on a correct denial and `1` if the syscall unexpectedly succeeds.
+
+See [OCI Entitlements — Seccomp profile](../../wendy-agent/oci/entitlements.md#seccomp-profile) for the full profile spec.
 
 ## `otel-localhost-only` test
 

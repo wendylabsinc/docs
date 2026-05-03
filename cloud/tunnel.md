@@ -15,7 +15,7 @@ wendy cloud tunnel [--cloud-grpc <endpoint>]
 
 The CLI:
 1. Calls `AssetService.ListAssets` with `IsComputeDevice = true` and `OnlineOnly = true` via a **server-streaming** gRPC connection.
-2. Collects all streamed assets until the server closes the stream.
+2. Collects streamed assets up to a hard cap of **10 000 devices** (to prevent unbounded memory growth from a misbehaving backend). If the backend returns more, the command exits with an error: `cloud returned more than 10000 devices`.
 3. Presents an interactive picker when more than one device is available.
 4. Opens a tunnel to the selected device.
 
