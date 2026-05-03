@@ -1,74 +1,41 @@
 # MCP (Model Context Protocol)
 
-WendyOS has first-class support for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). The wendy agent can expose tools from both the host system and from running app containers to any MCP-compatible AI assistant (Claude Desktop, Cursor, etc.).
+The wendy agent exposes device tools to AI assistants via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). Apps that declare an `mcp` entitlement in `wendy.json` are automatically discoverable through `wendy mcp serve`.
 
-## Overview
+## How it works
 
 ```
-AI Assistant (Claude Desktop / Cursor)
-        │  MCP (stdio)
-        ▼
-wendy mcp serve          ← aggregates all tool sources
-    │           │
-    │           └── StreamMCP gRPC ──► app container (MCP server on TCP port)
-    │
-    └── built-in host tools (provisioning, OS, cloud, …)
+AI Assistant
+    │  MCP (stdio)
+    ▼
+wendy mcp serve
+    │  StreamMCP gRPC (bidirectional streaming)
+    ▼
+wendy-agent (on device)
+    │  TCP
+    ▼
+container MCP server (127.0.0.1:<port>)
 ```
 
-`wendy mcp serve` starts a local MCP server over stdio. It:
+The wendy agent's `StreamMCP` RPC proxies raw bytes between the gRPC stream and the container's TCP port. Before forwarding, the agent verifies:
 
-- Exposes built-in tools for device provisioning, OS management, and cloud operations.
-- Discovers running containers that declare the [`mcp` entitlement](#container-mcp-servers) and automatically proxies their tools, prefixed with the app name.
+- The container has an `mcp` entitlement (non-zero `sh.wendy/mcp.port` label).
+- The container is in the `RUNNING` state.
 
-## Setup
+## Cloud asset listing (`list_cloud_assets`)
 
-### Claude Desktop
+The MCP tool `list_cloud_assets` enumerates devices enrolled in Wendy Cloud. To prevent unbounded memory growth from a misbehaving backend, results are capped at **10 000 devices**. If the backend returns more than 10 000 assets, the tool returns an error:
 
-```sh
-wendy mcp setup claude
+```
+cloud returned more than 10000 devices
 ```
 
-This writes the `wendy mcp serve` command into Claude Desktop's `claude_desktop_config.json` using the absolute path of the current `wendy` binary (resolved via `os.Executable` and symlink evaluation).
+## Enabling MCP for an app
 
-### Manual
-
-Add the following to your MCP client's server configuration:
+Add the `mcp` entitlement to `wendy.json`:
 
 ```json
 {
-  "mcpServers": {
-    "wendy": {
-      "command": "/path/to/wendy",
-      "args": ["mcp", "serve"]
-    }
-  }
-}
-```
-
-## `wendy mcp serve`
-
-Starts the MCP server over stdio. Connects to the default device (or the device specified with `--device`) and registers all available tools.
-
-If the configured address does not include a port, the default agent port is appended automatically.
-
-**What gets registered:**
-
-| Tool group | Source |
-|------------|--------|
-| Provisioning tools | Built-in |
-| OS tools | Built-in |
-| Cloud tools | Built-in |
-| Container MCP tools | Running containers with `mcp` entitlement (proxied via `StreamMCP`) |
-
-## Container MCP Servers
-
-Apps can expose their own MCP tools by declaring the `mcp` entitlement in `wendy.json`:
-
-```json
-{
-  "appId": "com.example.my-mcp-app",
-  "version": "1.0.0",
-  "language": "python",
   "entitlements": [
     { "type": "network", "mode": "host" },
     { "type": "mcp", "port": 3000 }
@@ -76,74 +43,34 @@ Apps can expose their own MCP tools by declaring the `mcp` entitlement in `wendy
 }
 ```
 
-When the container starts, the agent:
+| Field | Type | Description |
+|-------|------|-------------|
+| `port` | integer | TCP port on which the container's MCP server listens (required). |
 
-1. Stores `"3000"` in the containerd label `sh.wendy/mcp.port`.
-2. Returns the port in the `mcp_port` field of `AppContainer` (visible in `wendy device apps list`).
-3. Makes the container's MCP server reachable through the `StreamMCP` gRPC RPC.
+The `network` (host mode) entitlement is required so the agent can reach the container's MCP port over loopback.
 
-When `wendy mcp serve` starts, it scans all running containers for a non-zero `mcp_port` and connects to each one, registering their tools on the aggregated MCP server with the app name as a prefix.
+The container must serve the [MCP Streamable HTTP](https://modelcontextprotocol.io/specification) transport on `0.0.0.0:<port>`.
 
-### Container requirements
+## Running the MCP server
 
-The container must:
+```sh
+wendy mcp serve
+```
 
-- Serve the **MCP Streamable HTTP** transport on `0.0.0.0:<port>`.
-- Be **running** — stopped containers are skipped.
-- Declare `{ "type": "network", "mode": "host" }` alongside the `mcp` entitlement (so the agent can reach the port over loopback).
+Tools from all running containers with an `mcp` entitlement appear prefixed with the app ID (e.g. `com.wendylabs.examples.mcp-example/ping`).
 
-See the [MCPExample](../Examples/MCPExample/README.md) for a complete Python reference implementation using `FastMCP` and `uvicorn`.
+## Reference implementation
+
+See [Examples/MCPExample](../Examples/MCPExample/README.md) for a complete Python reference implementation using FastMCP and uvicorn.
 
 ## gRPC API
 
-### `StreamMCP`
+| RPC | Description |
+|-----|-------------|
+| `StreamMCP` | Bidirectional streaming RPC that proxies raw MCP bytes between the caller and the container's TCP port. |
 
-```protobuf
-rpc StreamMCP(stream MCPChunk) returns (stream MCPChunk);
+## Related
 
-message MCPChunk {
-    bytes data = 1;
-}
-```
-
-Bidirectional streaming RPC that proxies raw bytes between the caller and the container's MCP TCP port.
-
-**Metadata (required):**
-
-| Key | Value |
-|-----|-------|
-| `app-name` | The `appId` / container name of the target app |
-
-**Error codes:**
-
-| gRPC code | Meaning |
-|-----------|---------|
-| `InvalidArgument` | `app-name` metadata is missing or empty |
-| `NotFound` | Container not found, or container has no `mcp` entitlement |
-| `FailedPrecondition` | Container exists but is not in the `RUNNING` state |
-| `Unavailable` | TCP connection to the container's MCP port failed |
-
-### `AppContainer.mcp_port`
-
-The `AppContainer` message returned by `ListContainers` now includes:
-
-```protobuf
-uint32 mcp_port = 5;
-```
-
-This field is `0` for containers without an `mcp` entitlement and non-zero for containers that declared one. Use it to determine which containers expose an MCP server.
-
-## Client-side proxy (`mcp/proxy`)
-
-`wendy mcp serve` uses an internal TCP proxy to bridge local MCP client connections through `StreamMCP`:
-
-1. A local TCP listener is opened on an ephemeral port (`127.0.0.1:0`).
-2. Each incoming TCP connection spawns a `StreamMCP` gRPC stream with the `app-name` metadata set.
-3. Bytes are forwarded bidirectionally: TCP → gRPC chunks and gRPC chunks → TCP.
-4. The proxy shuts down cleanly when the parent context is cancelled or when either side closes the connection.
-
-This mechanism is transparent to the MCP client library (`mcp-go`), which sees a normal TCP endpoint.
-
-## `wendyBinaryPath` resolution
-
-When writing MCP server configuration files (e.g. for Claude Desktop), `wendy mcp setup` resolves the binary path using `os.Executable()` followed by symlink evaluation (`filepath.EvalSymlinks`). It falls back to a PATH lookup and finally to the literal string `"wendy"` if neither succeeds. This ensures the configuration always points to the real binary, not a symlink wrapper.
+- [wendy.json — `mcp` entitlement](../apps/wendy.json.md#mcp)
+- [MCPExample](../Examples/MCPExample/README.md)
+- [`wendy mcp serve`](../clients/wendy-cli/commands/)
