@@ -1,159 +1,597 @@
 # Wendy Agent gRPC API
 
-All proto files live under `Proto/wendy/agent/services/v1/` in the `wendy-agent` repository. Generated Go bindings are in `go/proto/gen/agentpb/`.
+The wendy-agent exposes a gRPC API that clients (the Wendy CLI, Wendy Cloud, and other tooling) use to manage apps, query device state, and stream telemetry. The API is defined in Protocol Buffer 3 and generated into Go.
 
-## Ports
-
-| Port | Transport | When active |
-|---|---|---|
-| `50051` | Plaintext gRPC | Pre-provisioning only. Shut down automatically once the device enrolls. |
-| `50052` | Mutual-TLS gRPC | Post-provisioning. All seven services are registered here. |
-
-`50051` is the default; override with `WENDY_AGENT_PORT`. The mTLS port is always `WENDY_AGENT_PORT + 1`.
+Both **v1** and **v2** of the API are registered on the agent's gRPC server simultaneously. v1 is unchanged; v2 introduces focused, single-responsibility services in the `wendy.agent.services.v2` package.
 
 ---
 
-## WendyAgentService
+## API Versions
 
-`Proto/wendy/agent/services/v1/wendy_agent_v1_service.proto`
-
-General device management: agent version, WiFi, Bluetooth, hardware, agent self-update, and OS update.
-
-| Method | Type | Description |
-|---|---|---|
-| `GetAgentVersion` | Unary | Returns agent version, OS, CPU architecture, WendyOS version, device type, GPU info (vendor, JetPack, CUDA), storage medium, and a `featureset` list (`gpu`, `audio`, `bluetooth`, `video`, `camera`, `mender`). |
-| `UpdateAgent` | Bidi-stream | Receives the new binary in chunks, then a control message with expected SHA-256. Verifies the hash, atomically replaces the binary, and exits so systemd restarts the agent. |
-| `UpdateOS` | Server-stream | Downloads a Mender artifact from a URL, runs `mender-update install`, streams progress phases (`downloading`, `installing`, `finalizing`) and percent, then reboots. |
-| `RunContainer` | Bidi-stream | **Deprecated.** Use `WendyContainerService`. |
-| `ListWiFiNetworks` | Unary | Returns visible SSIDs with signal strength, security type, known/connected flags, and RSSI. |
-| `GetWiFiStatus` | Unary | Returns whether the device is connected and the current SSID. |
-| `ConnectToWiFi` | Unary | Connects to a WiFi network by SSID and password; supports hidden networks and security type hints. |
-| `DisconnectWiFi` | Unary | Disconnects from the current WiFi network. |
-| `ListKnownWiFiNetworks` | Unary | Lists saved NetworkManager profiles (SSID, UUID, priority, security). |
-| `SetWiFiNetworkPriority` | Unary | Sets the autoconnect priority of a saved network. |
-| `ReorderKnownWiFiNetworks` | Unary | Bulk-reorders saved networks by priority. |
-| `ForgetWiFiNetwork` | Unary | Removes a saved NetworkManager profile. |
-| `ListHardwareCapabilities` | Unary | Returns hardware device list (GPU, USB, I2C, GPIO, camera, etc.) with paths and properties. Optional `category_filter`. |
-| `ScanBluetoothPeripherals` | Bidi-stream | Streams discovered Bluetooth devices (name, address, RSSI, paired/connected/trusted flags) until the client closes. |
-| `ConnectBluetoothPeripheral` | Unary | Connects to a Bluetooth device by address; optionally pairs and trusts. |
-| `DisconnectBluetoothPeripheral` | Unary | Disconnects a Bluetooth device by address. |
-| `ForgetBluetoothPeripheral` | Unary | Removes a paired Bluetooth device by address. |
-
-WiFi management delegates to `nmcli` via `NMCLINetworkManager`. All WiFi methods return `codes.Unavailable` when `nmcli` is not installed.
+| Package | Go package alias | Status |
+|---------|-----------------|--------|
+| `wendy.agent.services.v1` | `agentpbv1` | Stable, unchanged |
+| `wendy.agent.services.v2` | `agentpbv2` | Current — see below |
 
 ---
 
-## WendyContainerService
+## v2 Services
 
-`Proto/wendy/agent/services/v1/wendy_agent_v1_container_service.proto`
+All v2 proto files live under `Proto/wendy/agent/services/v2/`. Generated Go code is in `go/proto/gen/agentpb/v2/` (`go_package` = `github.com/wendylabsinc/wendy/proto/gen/agentpb/v2;agentpbv2`).
 
-Full container lifecycle management backed by containerd.
+### Service overview
 
-| Method | Type | Description |
-|---|---|---|
-| `ListLayers` | Server-stream | Lists layer digests and sizes already present in containerd's content store. |
-| `WriteLayer` | Client-stream | Uploads a single OCI layer (identified by digest). |
-| `CreateContainer` | Unary | Creates a container from a previously written image. |
-| `CreateContainerWithProgress` | Server-stream | Like `CreateContainer` but streams unpacking progress (phase, layer index, size, snapshot-reuse flag). |
-| `RunContainer` | Server-stream | Runs a container from uploaded layers; streams `Started` then stdout/stderr. |
-| `StartContainer` | Server-stream | Starts a previously created container by name; streams stdout/stderr. |
-| `AttachContainer` | Bidi-stream | Attaches to a running container (sends stdin, receives stdout/stderr). |
-| `StopContainer` | Unary | Stops a named container. |
-| `DeleteContainer` | Unary | Deletes a container and optionally its image and persistent volumes. |
-| `ListContainers` | Server-stream | Streams all known containers with name, version, and running state. |
-| `ListVolumes` | Unary | Lists persistent volumes (`/var/lib/wendy/volumes/`) with name, path, size, creation time, and apps that use them. |
-| `RemoveVolume` | Unary | Removes a named persistent volume. |
-| `ListContainerStats` | Unary | Returns current memory and storage usage for all containers. |
+| Proto file | Service name | Description |
+|-----------|-------------|-------------|
+| `device_info_service.proto` | `WendyDeviceInfoService` | Device metadata and hardware capability enumeration |
+| `agent_update_service.proto` | `WendyAgentUpdateService` | Agent binary self-update |
+| `os_update_service.proto` | `WendyOSUpdateService` | OS-level update via Mender artifact URL |
+| `wifi_service.proto` | `WendyWiFiService` | WiFi network management |
+| `bluetooth_service.proto` | `WendyBluetoothService` | Bluetooth peripheral management |
+| `container_service.proto` | `WendyContainerService` | Container lifecycle, volumes, and stats |
+| `provisioning_service.proto` | `WendyProvisioningService` | Device provisioning and enrollment status |
+| `audio_service.proto` | `WendyAudioService` | Audio device enumeration and streaming |
+| `telemetry_service.proto` | `WendyTelemetryService` | OpenTelemetry log / metric / trace streaming |
+| `file_sync_service.proto` | `WendyFileSyncService` | Bidirectional file sync |
+| `shared.proto` | *(types only)* | Shared enums and messages used across services |
 
 ---
 
-## WendyAudioService
+## Shared Types (`shared.proto`)
 
-`Proto/wendy/agent/services/v1/wendy_agent_v1_audio_service.proto`
+Shared types used by multiple v2 services.
 
-PipeWire/WirePlumber-backed audio device management and streaming.
+### Enums
 
-| Method | Type | Description |
-|---|---|---|
-| `ListAudioDevices` | Unary | Lists input (microphone) and output (speaker) devices with PipeWire node ID, name, description, and default flag. Optional type filter. |
-| `SetDefaultAudioDevice` | Unary | Sets the default input or output device by node ID. |
-| `StreamAudioLevels` | Server-stream | Streams real-time peak and RMS dB levels for a device at 1–60 Hz. |
-| `StreamAudio` | Server-stream | Streams raw s16le PCM chunks from a microphone at a configurable sample rate and channel count. |
+#### `RestartPolicyMode`
 
----
+| Value | Number | Description |
+|-------|--------|-------------|
+| `RESTART_POLICY_MODE_UNSPECIFIED` | `0` | Unspecified |
+| `RESTART_POLICY_MODE_UNLESS_STOPPED` | `1` | Restart unless manually stopped |
+| `RESTART_POLICY_MODE_NO` | `2` | Never restart |
+| `RESTART_POLICY_MODE_ON_FAILURE` | `3` | Restart on non-zero exit |
 
-## WendyVideoService
+#### `AppRunningState`
 
-`Proto/wendy/agent/services/v1/wendy_agent_v1_video_service.proto`
+| Value | Number | Description |
+|-------|--------|-------------|
+| `APP_RUNNING_STATE_UNSPECIFIED` | `0` | Unspecified |
+| `APP_RUNNING_STATE_STOPPED` | `1` | Container is stopped |
+| `APP_RUNNING_STATE_RUNNING` | `2` | Container is running |
 
-V4L2 video device listing and streaming.
+### Messages
 
-| Method | Type | Description |
-|---|---|---|
-| `ListVideoDevices` | Unary | Lists `/dev/videoN` devices with numeric ID, human-readable name, and path. |
-| `StreamVideo` | Server-stream | Streams encoded video frames (H.264 annexb or VP8/WebM) from a V4L2 device. Width, height, and framerate default to the device's native values when set to `0`. |
+#### `RestartPolicy`
 
----
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `RestartPolicyMode` | Restart mode |
+| `on_failure_max_retries` | `int32` | Maximum retries when `ON_FAILURE` mode is set |
 
-## WendyProvisioningService
+#### `AppContainer`
 
-`Proto/wendy/agent/services/v1/wendy_agent_v1_provisioning_service.proto`
-
-Device enrollment with the Wendy Cloud certificate authority.
-
-| Method | Type | Description |
-|---|---|---|
-| `IsProvisioned` | Unary | Returns `ProvisionedResponse` (cloud host, org ID, asset ID) when enrolled, or `NotProvisionedResponse`. |
-| `StartProvisioning` | Unary | Generates a CSR for the device key, exchanges it with the Wendy Cloud CA using an enrollment token, stores the issued certificate, and triggers the mTLS server startup and plaintext shutdown. |
-
-Provisioning state is persisted to `/etc/wendy-agent/provisioning.json`. The device private key is stored at `/etc/wendy-agent/device-key.pem` and reused on re-provisioning.
-
----
-
-## WendyTelemetryService
-
-`Proto/wendy/agent/services/v1/wendy_agent_v1_telemetry_service.proto`
-
-Streams OTLP telemetry from the device to CLI clients. Data originates from:
-- Container stdout/stderr captured by the container log manager.
-- OTLP data pushed by containers to the agent's OTLP receivers (gRPC `:4317`, HTTP `:4318`).
-- Agent-internal logs (tee'd into the broadcaster at startup).
-- Agent process and container CPU/memory metrics (collected every 15 seconds).
-
-| Method | Type | Description |
-|---|---|---|
-| `StreamLogs` | Server-stream | Streams `ExportLogsServiceRequest` OTLP envelopes. Filterable by `service_name`, `min_severity`, and `app_name`. |
-| `StreamMetrics` | Server-stream | Streams `ExportMetricsServiceRequest` OTLP envelopes. Filterable by `service_name`, `metric_name_prefix`, and `app_name`. |
-| `StreamTraces` | Server-stream | Streams `ExportTraceServiceRequest` OTLP envelopes. Filterable by `service_name`, `app_name`, and `span_name_prefix`. |
+| Field | Type | Description |
+|-------|------|-------------|
+| `app_name` | `string` | App identifier |
+| `app_version` | `string` | App version string |
+| `running_state` | `AppRunningState` | Current running state |
+| `failure_count` | `uint32` | Number of times the container has failed |
 
 ---
 
-## WendyFileSyncService
+## `WendyDeviceInfoService`
 
-`Proto/wendy/agent/services/v1/wendy_agent_v1_file_sync_service.proto`
+Provides static device metadata and hardware capability enumeration.
 
-Bidirectional file synchronisation used by the CLI to push source trees to a running container.
+### RPCs
 
-| Method | Type | Description |
-|---|---|---|
-| `SyncFiles` | Bidi-stream | Client sends `FileSyncStart` (with a manifest), then `FileSyncChunk`/`FileSyncCommit` pairs for changed files, optional `FileSyncChmod` for mode-only changes, and optional `FileSyncDelete` for stale files. Agent replies with `FileSyncManifest`, `FileSyncAck` per file, then `FileSyncComplete`. |
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `GetDeviceInfo` | `GetDeviceInfoRequest` | `GetDeviceInfoResponse` | Unary |
+| `ListHardwareCapabilities` | `ListHardwareCapabilitiesRequest` | `ListHardwareCapabilitiesResponse` | Unary |
+
+### `GetDeviceInfoResponse` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | `string` | Agent version |
+| `os_version` | `optional string` | OS version (e.g. WendyOS release) |
+| `os` | `string` | OS name (e.g. `"linux"`) |
+| `cpu_architecture` | `string` | CPU architecture (e.g. `"aarch64"`) |
+| `public_key` | `optional string` | Device public key (PEM) |
+| `featureset` | `repeated string` | Enabled feature flags |
+| `device_type` | `optional string` | Hardware model identifier |
+| `has_gpu` | `optional bool` | Whether a GPU is present |
+| `gpu_vendor` | `optional string` | GPU vendor string |
+| `jetpack_version` | `optional string` | NVIDIA JetPack version (Jetson only) |
+| `cuda_version` | `optional string` | CUDA version (Jetson only) |
+
+### `ListHardwareCapabilitiesRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `category_filter` | `optional string` | Filter by capability category (e.g. `"camera"`, `"gpio"`) |
+
+### `HardwareCapability` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `category` | `string` | Capability category |
+| `device_path` | `string` | Device path (e.g. `/dev/video0`) |
+| `description` | `string` | Human-readable description |
+| `properties` | `map<string, string>` | Arbitrary key-value metadata |
 
 ---
 
-## OpenTelemetry receiver endpoints
+## `WendyAgentUpdateService`
 
-The agent registers the standard OTLP collector services on a dedicated gRPC server (`:4317`):
+Streams a new agent binary to the device and triggers a self-replacement.
 
-| Service | Proto package |
-|---|---|
-| `LogsService` | `opentelemetry.proto.collector.logs.v1` |
-| `MetricsService` | `opentelemetry.proto.collector.metrics.v1` |
-| `TraceService` | `opentelemetry.proto.collector.trace.v1` |
+### RPCs
 
-An HTTP/protobuf receiver on `:4318` accepts the same three signal types at the standard OTLP/HTTP paths (`/v1/logs`, `/v1/metrics`, `/v1/traces`).
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `UpdateAgent` | `stream UpdateAgentRequest` | `stream UpdateAgentResponse` | Bidirectional streaming |
+
+### `UpdateAgentRequest` (`oneof request_type`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `chunk` | `Chunk` | Binary data chunk (`bytes data`) |
+| `control` | `ControlCommand` | Control command |
+
+#### `ControlCommand` (`oneof command`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `update` | `Update` | Trigger the update; `sha256` field is the hex-encoded SHA-256 of the full binary |
+
+### `UpdateAgentResponse` (`oneof response_type`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `updated` | `Updated` | Emitted once the agent has successfully replaced itself |
 
 ---
 
-## Bluetooth L2CAP channel
+## `WendyOSUpdateService`
 
-On provisioned devices the agent additionally exposes a Bluetooth L2CAP server protected by the device mTLS certificate. It accepts `BluetoothCommand` protobuf messages and returns `BluetoothResponse` messages (defined in `wendy_agent_v1_bluetooth.proto`). The commands mirror the gRPC WiFi, Bluetooth, and app management methods, allowing the CLI to control the device over BLE before a network connection is established.
+Triggers an OS-level update using a Mender artifact.
+
+### RPCs
+
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `UpdateOS` | `UpdateOSRequest` | `stream UpdateOSResponse` | Server streaming |
+
+### `UpdateOSRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `artifact_url` | `string` | URL of the Mender artifact to install |
+
+### `UpdateOSResponse` (`oneof response_type`)
+
+| Variant | Fields | Description |
+|---------|--------|-------------|
+| `progress` | `phase: string`, `percent: int32` | Update phase and percentage complete |
+| `completed` | `reboot_required: bool` | Update finished; indicates whether a reboot is needed |
+| `failed` | `error_message: string` | Update failed with the given error |
+
+---
+
+## `WendyWiFiService`
+
+Manages WiFi connections on the device.
+
+### RPCs
+
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `ListWiFiNetworks` | `ListWiFiNetworksRequest` | `ListWiFiNetworksResponse` | Unary |
+| `ConnectToWiFi` | `ConnectToWiFiRequest` | `ConnectToWiFiResponse` | Unary |
+| `GetWiFiStatus` | `GetWiFiStatusRequest` | `GetWiFiStatusResponse` | Unary |
+| `DisconnectWiFi` | `DisconnectWiFiRequest` | `DisconnectWiFiResponse` | Unary |
+| `ListKnownWiFiNetworks` | `ListKnownWiFiNetworksRequest` | `ListKnownWiFiNetworksResponse` | Unary |
+| `SetWiFiNetworkPriority` | `SetWiFiNetworkPriorityRequest` | `SetWiFiNetworkPriorityResponse` | Unary |
+| `ReorderKnownWiFiNetworks` | `ReorderKnownWiFiNetworksRequest` | `ReorderKnownWiFiNetworksResponse` | Unary |
+| `ForgetWiFiNetwork` | `ForgetWiFiNetworkRequest` | `ForgetWiFiNetworkResponse` | Unary |
+
+### `WiFiSecurityType` enum
+
+| Value | Number |
+|-------|--------|
+| `WIFI_SECURITY_TYPE_UNSPECIFIED` | `0` |
+| `WIFI_SECURITY_TYPE_OPEN` | `1` |
+| `WIFI_SECURITY_TYPE_WEP` | `2` |
+| `WIFI_SECURITY_TYPE_WPA_PSK` | `3` |
+| `WIFI_SECURITY_TYPE_WPA2_PSK` | `4` |
+| `WIFI_SECURITY_TYPE_WPA3_SAE` | `5` |
+| `WIFI_SECURITY_TYPE_WPA2_ENTERPRISE` | `6` |
+
+### `ListWiFiNetworksResponse` — `WiFiNetwork` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ssid` | `string` | Network SSID |
+| `signal_strength` | `optional int32` | Signal strength (0–100) |
+| `security` | `WiFiSecurityType` | Security type |
+| `is_known` | `bool` | Whether the device has a saved profile for this network |
+| `is_connected` | `bool` | Whether currently connected |
+| `priority` | `optional int32` | Autoconnect priority |
+| `rssi_dbm` | `optional int32` | RSSI in dBm |
+
+### `ConnectToWiFiRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ssid` | `string` | Network SSID |
+| `password` | `string` | Network password |
+| `security` | `optional WiFiSecurityType` | Override security type |
+| `hidden` | `optional bool` | Whether the network is hidden |
+
+### `ListKnownWiFiNetworksResponse` — `KnownWiFiNetwork` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ssid` | `string` | Network SSID |
+| `uuid` | `string` | NetworkManager connection UUID |
+| `priority` | `int32` | Autoconnect priority |
+| `security` | `WiFiSecurityType` | Security type |
+
+### `ReorderKnownWiFiNetworksRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `order_ssids` | `repeated string` | SSIDs in desired priority order (highest first) |
+
+---
+
+## `WendyBluetoothService`
+
+Manages Bluetooth peripheral discovery and connection.
+
+### RPCs
+
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `ScanBluetoothPeripherals` | `stream ScanBluetoothPeripheralsRequest` | `stream ScanBluetoothPeripheralsResponse` | Bidirectional streaming |
+| `ConnectBluetoothPeripheral` | `ConnectBluetoothPeripheralRequest` | `ConnectBluetoothPeripheralResponse` | Unary |
+| `DisconnectBluetoothPeripheral` | `DisconnectBluetoothPeripheralRequest` | `DisconnectBluetoothPeripheralResponse` | Unary |
+| `ForgetBluetoothPeripheral` | `ForgetBluetoothPeripheralRequest` | `ForgetBluetoothPeripheralResponse` | Unary |
+
+### `DiscoveredBluetoothPeripheral` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Device display name |
+| `address` | `string` | Bluetooth MAC address |
+| `rssi` | `int32` | RSSI signal strength in dBm |
+| `device_type` | `string` | Device type string (e.g. `"audio"`, `"input"`) |
+| `paired` | `bool` | Whether the device is paired |
+| `connected` | `bool` | Whether the device is currently connected |
+| `trusted` | `bool` | Whether the device is trusted |
+
+### `ConnectBluetoothPeripheralRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `address` | `string` | Bluetooth MAC address |
+| `pair` | `bool` | Pair the device during connection |
+| `trust` | `bool` | Trust the device during connection |
+
+---
+
+## `WendyContainerService`
+
+Manages app container lifecycle, volumes, and resource stats.
+
+### RPCs
+
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `StartContainer` | `StartContainerRequest` | `stream ContainerStreamResponse` | Server streaming |
+| `AttachContainer` | `stream AttachContainerRequest` | `stream ContainerStreamResponse` | Bidirectional streaming |
+| `StopContainer` | `StopContainerRequest` | `StopContainerResponse` | Unary |
+| `DeleteContainer` | `DeleteContainerRequest` | `DeleteContainerResponse` | Unary |
+| `ListContainers` | `ListContainersRequest` | `stream ListContainersResponse` | Server streaming |
+| `ListVolumes` | `ListVolumesRequest` | `ListVolumesResponse` | Unary |
+| `RemoveVolume` | `RemoveVolumeRequest` | `RemoveVolumeResponse` | Unary |
+| `ListContainerStats` | `ListContainerStatsRequest` | `ListContainerStatsResponse` | Unary |
+
+### `ContainerStreamResponse` (`oneof response_type`)
+
+| Variant | Fields | Description |
+|---------|--------|-------------|
+| `started` | *(empty)* | Container has started |
+| `stdout_output` | `data: bytes` | stdout bytes |
+| `stderr_output` | `data: bytes` | stderr bytes |
+
+### `AttachContainerRequest` (`oneof request_type`)
+
+| Variant | Type | Description |
+|---------|------|-------------|
+| `app_name` | `string` | App to attach to (sent first) |
+| `stdin_data` | `bytes` | stdin bytes forwarded to the container |
+
+### `DeleteContainerRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `app_name` | `string` | App to delete |
+| `delete_image` | `bool` | Also remove the container image |
+| `delete_volumes` | `bool` | Also remove associated volumes |
+
+### `ListContainersResponse` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `container` | `AppContainer` | One container per streamed response message |
+
+### `VolumeInfo` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Volume name |
+| `path` | `string` | Mount path on host |
+| `size_bytes` | `int64` | Total size in bytes |
+| `created_at` | `string` | RFC 3339 creation timestamp |
+| `used_by` | `repeated string` | App names that reference this volume |
+
+### `ContainerStats` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `app_name` | `string` | App identifier |
+| `memory_bytes` | `int64` | Current memory usage |
+| `storage_bytes` | `int64` | Disk usage of container layers and volumes |
+
+---
+
+## `WendyProvisioningService`
+
+Handles device provisioning and enrollment status checks.
+
+### RPCs
+
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `StartProvisioning` | `StartProvisioningRequest` | `StartProvisioningResponse` | Unary |
+| `IsProvisioned` | `IsProvisionedRequest` | `IsProvisionedResponse` | Unary |
+
+### `IsProvisionedResponse` (`oneof response_type`)
+
+| Variant | Fields | Description |
+|---------|--------|-------------|
+| `not_provisioned` | *(empty)* | Device has not been provisioned |
+| `provisioned` | `cloud_host: string`, `organization_id: int32`, `asset_id: int32` | Device is provisioned with the given cloud coordinates |
+
+### `StartProvisioningRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `organization_id` | `int32` | Organisation to enroll the device into |
+| `enrollment_token` | `string` | Token issued by pki-core / Wendy Cloud |
+| `cloud_host` | `string` | Cloud gRPC endpoint (`host:port`) |
+| `asset_id` | `int32` | Asset ID assigned to this device |
+
+---
+
+## `WendyAudioService`
+
+Enumerates audio devices and streams audio data or level meters.
+
+### RPCs
+
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `ListAudioDevices` | `ListAudioDevicesRequest` | `ListAudioDevicesResponse` | Unary |
+| `SetDefaultAudioDevice` | `SetDefaultAudioDeviceRequest` | `SetDefaultAudioDeviceResponse` | Unary |
+| `StreamAudioLevels` | `StreamAudioLevelsRequest` | `stream AudioLevelUpdate` | Server streaming |
+| `StreamAudio` | `StreamAudioRequest` | `stream AudioChunk` | Server streaming |
+
+### `AudioDeviceType` enum
+
+| Value | Number | Description |
+|-------|--------|-------------|
+| `AUDIO_DEVICE_TYPE_UNSPECIFIED` | `0` | Unspecified |
+| `AUDIO_DEVICE_TYPE_INPUT` | `1` | Microphone / capture device |
+| `AUDIO_DEVICE_TYPE_OUTPUT` | `2` | Speaker / playback device |
+
+### `AudioDevice` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `device_id` | `uint32` | Numeric device identifier |
+| `name` | `string` | Short device name |
+| `description` | `string` | Human-readable description |
+| `type` | `AudioDeviceType` | Input or output |
+| `is_default` | `bool` | Whether this is the system default device |
+
+### `ListAudioDevicesRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type_filter` | `optional AudioDeviceType` | Filter to only input or only output devices |
+
+### `StreamAudioLevelsRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `device_id` | `uint32` | Device to monitor |
+| `update_rate_hz` | `uint32` | Level meter update rate in Hz |
+
+### `AudioLevelUpdate` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `peak_db` | `float` | Peak level in dBFS |
+| `rms_db` | `float` | RMS level in dBFS |
+| `timestamp_ns` | `uint64` | Capture timestamp (nanoseconds since epoch) |
+
+### `StreamAudioRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `device_id` | `uint32` | Device to capture from |
+| `sample_rate` | `uint32` | Sample rate in Hz (e.g. `44100`, `48000`) |
+| `channels` | `uint32` | Number of channels (e.g. `1` for mono, `2` for stereo) |
+
+### `AudioChunk` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pcm_data` | `bytes` | Raw signed 16-bit little-endian PCM samples |
+| `timestamp_ns` | `uint64` | Capture timestamp (nanoseconds since epoch) |
+| `sample_rate` | `uint32` | Sample rate of this chunk |
+| `channels` | `uint32` | Channel count of this chunk |
+
+---
+
+## `WendyTelemetryService`
+
+Streams OpenTelemetry signals from the device to the client. Each response message wraps the standard OTLP collector request types.
+
+### RPCs
+
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `StreamLogs` | `StreamLogsRequest` | `stream StreamLogsResponse` | Server streaming |
+| `StreamMetrics` | `StreamMetricsRequest` | `stream StreamMetricsResponse` | Server streaming |
+| `StreamTraces` | `StreamTracesRequest` | `stream StreamTracesResponse` | Server streaming |
+
+### `StreamLogsRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `service_name` | `optional string` | Filter by OTel service name |
+| `min_severity` | `optional int32` | Minimum OTel severity number (e.g. `9` = INFO) |
+| `app_name` | `optional string` | Filter by Wendy app name |
+
+### `StreamLogsResponse` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `logs` | `ExportLogsServiceRequest` | OTLP log export payload |
+
+### `StreamMetricsRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `service_name` | `optional string` | Filter by OTel service name |
+| `metric_name_prefix` | `optional string` | Filter metrics by name prefix |
+| `app_name` | `optional string` | Filter by Wendy app name |
+
+### `StreamMetricsResponse` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `metrics` | `ExportMetricsServiceRequest` | OTLP metrics export payload |
+
+### `StreamTracesRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `service_name` | `optional string` | Filter by OTel service name |
+| `app_name` | `optional string` | Filter by Wendy app name |
+| `span_name_prefix` | `optional string` | Filter spans by name prefix |
+
+### `StreamTracesResponse` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `traces` | `ExportTraceServiceRequest` | OTLP trace export payload |
+
+> **Dependency:** `WendyTelemetryService` imports the standard OpenTelemetry collector proto types: `opentelemetry.proto.collector.logs.v1`, `opentelemetry.proto.collector.metrics.v1`, and `opentelemetry.proto.collector.trace.v1`.
+
+---
+
+## `WendyFileSyncService`
+
+Bidirectional file sync between client and device. The client sends file manifests, chunks, commits, chmod commands, and delete instructions; the server responds with its own manifest (for diffing), per-file acknowledgements, and a final completion signal.
+
+### RPCs
+
+| Method | Request | Response | Type |
+|--------|---------|----------|------|
+| `SyncFiles` | `stream FileSyncRequest` | `stream FileSyncResponse` | Bidirectional streaming |
+
+### `FileSyncRequest` (`oneof request_type`)
+
+| Variant | Message | Description |
+|---------|---------|-------------|
+| `start` | `FileSyncStart` | Begin a sync session for `app_id`, includes client manifest |
+| `chunk` | `FileSyncChunk` | A chunk of file data |
+| `commit` | `FileSyncCommit` | Signals that all chunks for a file have been sent |
+| `chmod` | `FileSyncChmod` | Change the mode of a file |
+| `delete` | `FileSyncDelete` | Delete one or more paths |
+
+### `FileSyncResponse` (`oneof response_type`)
+
+| Variant | Message | Description |
+|---------|---------|-------------|
+| `manifest` | `FileSyncManifest` | Server-side file manifest returned after `start`, used for diffing |
+| `ack` | `FileSyncAck` | Per-file acknowledgement (`path` field) |
+| `complete` | `FileSyncComplete` | All operations have been applied |
+
+### `FileSyncEntry` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `path` | `string` | Relative file path |
+| `size` | `int64` | File size in bytes |
+| `sha256` | `bytes` | SHA-256 digest |
+| `mode` | `uint32` | Unix file mode bits |
+
+### `FileSyncChunk` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `path` | `string` | Relative file path this chunk belongs to |
+| `data` | `bytes` | Raw chunk bytes |
+| `sequence` | `uint64` | Monotonically increasing chunk index |
+| `cumulative_size` | `int64` | Total bytes sent so far for this file |
+| `sha256` | `bytes` | SHA-256 of this chunk |
+
+### `FileSyncChmod` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `path` | `string` | File path |
+| `mode` | `uint32` | New Unix mode bits |
+| `size` | `int64` | File size (for verification) |
+| `sha256` | `bytes` | File SHA-256 (for verification) |
+
+### `FileSyncDelete` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `paths` | `repeated string` | Paths to delete |
+
+---
+
+## Proto file locations
+
+```
+Proto/wendy/agent/services/v2/
+  shared.proto
+  device_info_service.proto
+  agent_update_service.proto
+  os_update_service.proto
+  wifi_service.proto
+  bluetooth_service.proto
+  container_service.proto
+  provisioning_service.proto
+  audio_service.proto
+  telemetry_service.proto
+  file_sync_service.proto
+```
+
+Generated Go output: `go/proto/gen/agentpb/v2/`
+
+---
+
+## Connectivity
+
+See [wendy-agent/connectivity/grpc.md](./connectivity/grpc.md) for transport details (ports, TLS, mTLS).
