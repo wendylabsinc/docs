@@ -8,22 +8,24 @@ Thank you for contributing to WendyOS! This document covers the development work
 
 The docs-update workflow automatically proposes documentation changes whenever a pull request is merged. It is driven by Claude (Anthropic) and reflects the changes in the PR diff.
 
-**Key behaviours (as of PR #588):**
+**Key behaviours:**
 
-- **Full doc sweep:** Instead of mapping changed source paths to specific doc sections, the workflow now reads *all* Markdown files under `docs/` up to a 50,000-character budget. Files are collected in sorted order; collection stops when the budget is reached.
+- **Relevance-ranked doc selection:** Markdown files under `docs/` are scored by keyword overlap between their path/content and the PR title and diff. Files are ranked by relevance descending before the 50,000-character budget is applied, so the most pertinent documentation fills the context window rather than alphabetically-first files.
 - **File-tree context:** A compact file tree (max 3 levels deep) is included in the prompt so the model can reason about the overall documentation structure.
-- **Larger context window:** `max_tokens` has been raised from `8096` to `16,000` to accommodate more thorough updates.
-- **Diff formatting:** The raw diff is now wrapped in a fenced ` ```diff ``` ` code block in the prompt, and the truncation limit has been raised from 20,000 to 30,000 characters.
-- **Docs truncation limit:** The current-docs context limit has been raised from 20,000 to 50,000 characters.
-- **Path safety:** The workflow uses `Path.relative_to()` (raising `ValueError` on traversal) instead of a string-prefix check, and additionally rejects any output path whose suffix is not `.md`.
+- **Larger context window:** `max_tokens` is set to `16,000`.
+- **Diff formatting:** The raw diff is wrapped in a fenced ` ```diff ``` ` code block in the prompt, truncated at 30,000 characters.
+- **Docs truncation limit:** The current-docs context limit is 50,000 characters, presented to the model as "most relevant first".
+- **Source repo context:** The name of the source repository is included in the prompt.
+- **Path safety:** The workflow uses `Path.relative_to()` (raising `ValueError` on traversal) and rejects any output path whose suffix is not `.md`.
+- **Protected files:** `THREAT_MODEL.md` and `threat-model.md` are never read as context and never written by this workflow. Threat model files are managed by a dedicated security workflow.
 - **Directory creation:** Output directories are created automatically (`mkdir -p`) so the model can introduce new documentation pages in new subdirectories.
-- **Created vs. Updated logging:** The workflow now prints `Created:` for new files and `Updated:` for existing files.
+- **Created vs. Updated logging:** The workflow prints `Created:` for new files and `Updated:` for existing files.
 - **Empty-diff guard:** If the diff is empty, the workflow exits early rather than attempting a model call.
-- **Prompt wording:** The system prompt has been updated to instruct the model to be thorough, touch every affected page, create new files where needed, and not delete existing documentation unless the diff explicitly removes a feature.
+- **Prompt wording:** The system prompt instructs the model to make only minimal, surgical edits to keep docs accurate — updating only content that is directly wrong or missing as a result of the diff, writing in timeless present tense, and never inventing or removing features not present in the diff.
 
 ### Security Review Workflow (`.github/workflows/security-review.yml`)
 
-A new **AI Security Review** workflow was added in PR #588. It runs on every pull request targeting `main` and posts a structured security and compliance report as a PR comment.
+A dedicated **AI Security Review** workflow runs on every pull request targeting `main` and posts a structured security and compliance report as a PR comment.
 
 #### Trigger
 
