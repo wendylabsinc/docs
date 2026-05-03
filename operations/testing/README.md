@@ -1,0 +1,72 @@
+# Integration Testing
+
+This document describes the CI integration test pipeline for WendyOS and wendy-agent.
+
+## Overview
+
+Integration tests run against real hardware devices discovered on the CI LAN. The pipeline has three jobs:
+
+| Job | Runner | Description |
+|-----|--------|-------------|
+| `discover` | ubuntu-latest | Discovers LAN devices via `wendy discover` |
+| `integration-test-macos` | macos | Builds `wendy` and runs the full test suite on discovered devices |
+| `integration-test-linux` | ubuntu-latest | Builds `wendy` and runs the Linux-compatible subset of the test suite |
+
+> **Note:** The `summary` job was removed. Pass/fail status is determined directly from the `integration-test-macos` and `integration-test-linux` job results.
+
+## Test cases
+
+The following named test cases are registered in the pipeline:
+
+| Test | macOS | Linux | Description |
+|------|-------|-------|-------------|
+| `swift-hello` | ✅ | ❌ | Basic Swift app smoke test |
+| `swift-network` | ✅ | ❌ | Swift app with network entitlement |
+| `swift-bluetooth` | ✅ | ❌ | Swift app with Bluetooth entitlement |
+| `python-hello` | ✅ | ✅ | Basic Python app smoke test |
+| `python-network` | ✅ | ✅ | Python app with network entitlement |
+| `python-gpu` | ✅ | ✅ | Python app with GPU entitlement |
+| `python-bluetooth` | ✅ | ✅ | Python app with Bluetooth entitlement |
+| `python-no-network` | ✅ | ✅ | Python app with networking disabled |
+| `python-no-bluetooth` | ✅ | ✅ | Python app with Bluetooth disabled |
+| `otel-localhost-only` | ✅ | ✅ | Verifies OTEL receivers bind to 127.0.0.1 only (WDY-1097, WDY-1100) |
+
+Swift tests are excluded from the default Linux suite because Swift container builds require macOS. They can still be run manually on Linux by specifying them via the `INPUT_TESTS` workflow input — the Linux runner no longer skips them automatically when explicitly requested.
+
+## Device discovery
+
+The `discover` job runs `wendy discover --json --timeout 10s` to find devices on the LAN. Discovery failures are non-fatal (`|| true`); if no devices are found the test jobs exit cleanly with a success status.
+
+## Running tests
+
+### Default (all registered tests)
+
+Trigger the workflow without inputs. The macOS job runs all tests; the Linux job runs all tests except `swift-*`.
+
+### Selective runs (`INPUT_TESTS`)
+
+Provide a comma-separated list of test names via the `INPUT_TESTS` workflow input:
+
+```
+python-hello, otel-localhost-only
+```
+
+Each name is trimmed of whitespace. If all provided test names resolve to an empty set (e.g. no devices were found), the job exits successfully without running anything.
+
+## Test script
+
+Tests are executed via `scripts/test-ci.sh`. The script is invoked once per discovered device:
+
+```sh
+scripts/test-ci.sh $TEST_ARGS -h "$device"
+```
+
+where `TEST_ARGS` contains one `-t <name>` flag per test case and `-w <absolute-path-to-wendy-binary>`.
+
+The wendy binary path is resolved to an absolute path at the start of the job to avoid working-directory-relative path issues.
+
+## `otel-localhost-only` test
+
+Added in PR #598 to provide regression coverage for [WDY-1097 and WDY-1100](https://github.com/wendylabsinc/wendy-agent/pull/597). This test verifies that the OpenTelemetry (OTEL) receivers inside wendy-agent bind exclusively to `127.0.0.1` and are not reachable on external interfaces. It runs on both macOS and Linux CI runners.
+
+See [wendy-agent/otel.md](../../wendy-agent/otel.md) for documentation on the OTEL integration.
