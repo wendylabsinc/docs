@@ -60,6 +60,8 @@ If the configured address does not include a port, the default agent port is app
 | Cloud tools | Built-in |
 | Container MCP tools | Running containers with `mcp` entitlement (proxied via `StreamMCP`) |
 
+The `list_cloud_assets` cloud tool caps results at **10 000 devices** to prevent unbounded memory growth. If the backend returns more, the tool returns an error: `cloud returned more than 10000 devices`.
+
 ## Container MCP Servers
 
 Apps can expose their own MCP tools by declaring the `mcp` entitlement in `wendy.json`:

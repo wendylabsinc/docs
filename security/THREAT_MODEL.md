@@ -228,14 +228,12 @@ Severity scale: **CRITICAL > HIGH > MEDIUM > LOW > INFO**
   - Verify that TLS session resumption is disabled on BLE channels (disable session tickets / stateless resumption).
   - Confirm pre-provisioning BLE behaviour: document and restrict which commands are available before mTLS is established.
 
-#### TM-I-05 — Container escape exposing host filesystem
-- **Severity:** MEDIUM
+#### TM-I-05 — Container escape exposing host filesystem ✅ Mitigated (WDY-1099)
+- **Severity:** MEDIUM → mitigated
 - **Component:** Container runtime, capability set
-- **Description:** Containers are granted a broad capability set when device entitlements are enabled (including `CAP_SYS_PTRACE`, `CAP_SYS_CHROOT`, `CAP_NET_ADMIN`). A container vulnerability combined with these capabilities could allow a container escape to the host.
-- **Existing mitigations:** `CAP_SYS_ADMIN` is not granted. User namespaces isolate container UID from host UID.
+- **Description:** Containers with device entitlements were previously granted `CAP_SYS_PTRACE` and `CAP_SYS_CHROOT`, which combined with a container vulnerability could allow a host filesystem escape.
+- **Existing mitigations:** `CAP_SYS_ADMIN` is not granted. User namespaces isolate container UID from host UID. `CAP_SYS_PTRACE` and `CAP_SYS_CHROOT` removed from all capability sets (wendy-agent#600). Default seccomp profile blocks `ptrace`, `unshare`, and `clone(CLONE_NEWUSER)` for all containers (wendy-agent#600). CI regression tests `python-no-ptrace` and `python-no-unshare` verify seccomp enforcement on every build (wendy-agent#603). See [OCI Entitlements](../wendy-agent/oci/entitlements.md) for the full capability and seccomp spec.
 - **Recommended controls:**
-  - Audit each entitlement's capability grants; remove `CAP_SYS_PTRACE` and `CAP_SYS_CHROOT` unless specifically required.
-  - Enable a seccomp profile restricting dangerous syscalls (e.g., `ptrace`, `unshare`, `clone` with `CLONE_NEWUSER`).
   - Enable AppArmor or SELinux profiles for containers.
 
 ---
