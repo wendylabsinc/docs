@@ -4,10 +4,10 @@
 
 ### Go
 
-The module requires **Go 1.25.9** or later. The exact version is pinned in `go/go.mod`. The CI workflows use `actions/setup-go` with `go-version-file: go/go.mod`, so the version is always read from that file — follow the same practice locally.
+The module requires **Go 1.26.2** or later. The exact version is pinned in `go/go.mod`. The CI workflows use `actions/setup-go` with `go-version-file: go/go.mod`, so the version is always read from that file — follow the same practice locally.
 
 ```sh
-go version   # should report go1.25 or later
+go version   # should report go1.26 or later
 ```
 
 ### System Dependencies
