@@ -28,7 +28,7 @@ wendy mcp serve          ← aggregates all tool sources
 wendy mcp setup claude
 ```
 
-This writes the `wendy mcp serve` command into Claude Desktop's `claude_desktop_config.json` using the absolute path of the current `wendy` binary (resolved via `os.Executable` and symlink evaluation).
+This writes the `wendy mcp serve` command into Claude Desktop's `claude_desktop_config.json` using the absolute path of the current `wendy` binary as returned by `os.Executable()`. Symlinks are not resolved, so the path recorded is the stable symlink (e.g. `/opt/homebrew/bin/wendy`) rather than a versioned Cellar path, which means the configuration continues to work after `brew upgrade wendy` without re-running `mcp setup`.
 
 ### Manual
 
@@ -148,4 +148,4 @@ This mechanism is transparent to the MCP client library (`mcp-go`), which sees a
 
 ## `wendyBinaryPath` resolution
 
-When writing MCP server configuration files (e.g. for Claude Desktop), `wendy mcp setup` resolves the binary path using `os.Executable()` followed by symlink evaluation (`filepath.EvalSymlinks`). It falls back to a PATH lookup and finally to the literal string `"wendy"` if neither succeeds. This ensures the configuration always points to the real binary, not a symlink wrapper.
+When writing MCP server configuration files (e.g. for Claude Desktop), `wendy mcp setup` resolves the binary path using `os.Executable()` without resolving symlinks. It falls back to a PATH lookup and finally to the literal string `"wendy"` if neither succeeds. This ensures the configuration records the stable symlink path (e.g. `/opt/homebrew/bin/wendy`) rather than a versioned real path, so the configuration remains valid across upgrades.
