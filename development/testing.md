@@ -73,6 +73,14 @@ Integration tests run in `.github/workflows/integration-tests.yml` on both macOS
 
 > **Note:** Swift tests (`swift-*`) run only on the macOS job. The Linux job omits them.
 
+#### Stable release gate
+
+When a release build is triggered with `publish=true`, the full macOS integration test suite runs as a required gate before the `release` and `publish-linux-repos` jobs proceed. If integration tests fail, neither job runs. Nightly builds (triggered by a `push` event or `publish=false`) skip the integration-test gate and proceed directly to release.
+
+#### PR gate for CI config changes
+
+Pull requests from within the repository that modify files under `.github/` automatically trigger a macOS integration test run via `.github/workflows/pr-integration-tests.yml`. Only one run is active per PR at a time; opening a new commit cancels the previous run.
+
 ---
 
 ## Automated Integration Test Coverage (CI)
