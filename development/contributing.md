@@ -43,7 +43,7 @@ Concurrent runs for the same PR are cancelled automatically (`cancel-in-progress
 1. **Fetches the PR diff** using the GitHub CLI (`gh pr diff`).
 2. **Invokes Claude** (`claude-sonnet-4-6`, `max_tokens=8096`) with a detailed system prompt covering security and compliance analysis.
 3. **Writes a Markdown report** (`review.md`) to the workspace.
-4. **Posts or updates a PR comment** headed `## AI Security Review`. If a previous security review comment already exists on the PR it is edited in place; otherwise a new comment is created.
+4. **Posts or updates a PR comment** headed `## AI Security Review`. The full report is wrapped in a `<details>`/`<summary>` collapsible block; the summary text is extracted from the first non-heading paragraph of the report. If a previous security review comment already exists on the PR it is edited in place; otherwise a new comment is created.
 
 #### Security analysis scope
 
