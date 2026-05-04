@@ -2,6 +2,14 @@
 
 `wendy-agent` is a Go binary that runs on WendyOS devices and on DGX Spark. It exposes gRPC APIs consumed by the wendy CLI, manages containers through containerd, handles networking (WiFi / Bluetooth), streams OpenTelemetry telemetry, and connects devices to the Wendy Cloud.
 
+## Command-line flags
+
+Before the server starts, `wendy-agent` handles a small set of utility flags and exits:
+
+| Flag | Description |
+|------|-------------|
+| `--version`, `-v` | Print the agent version string and exit. |
+
 ## Startup sequence
 
 When `wendy-agent` starts it performs the following steps in order:
