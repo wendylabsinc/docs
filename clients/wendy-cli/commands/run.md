@@ -11,6 +11,16 @@ Runs your app on a Wendy-enabled device:
 
 If the current directory contains a `docker-compose.yml` (or `compose.yml`) but no `wendy.json`, `wendy run` automatically runs it as a multi-service compose project. Each service is built, pushed, and started on the device in dependency order. See [Multi-Service Apps with Docker Compose](../../../apps/compose.md) for full details.
 
+## Swift Package Manager projects (macOS)
+
+When running a Swift Package Manager project on a macOS target, `wendy run`:
+
+1. Builds the project with `swift build -c release` (or `-c debug` when `--debug` is passed).
+2. Resolves the build products directory via `swift build --show-bin-path`.
+3. Syncs the compiled binary to the device.
+4. Automatically syncs any sibling `.bundle` and `.resources` directories found in the build products directory alongside the binary, so SwiftPM resource bundles are available at runtime.
+5. Syncs `sandbox.sb` from the project root if present, and any additional files declared under `files` in `wendy.json`.
+
 ## Flags
 
 | Flag | Description |
@@ -20,7 +30,7 @@ If the current directory contains a `docker-compose.yml` (or `compose.yml`) but 
 | `--restart-unless-stopped` | Restart the container unless manually stopped. |
 | `--restart-on-failure` | Restart the container on failure. |
 | `--no-restart` | Do not restart the container on exit. |
-| `--debug` | Enable debug logging and inject debug tooling via `WENDY_DEBUG=true`. |
+| `--debug` | Enable debug logging and inject debug tooling via `WENDY_DEBUG=true`. For SwiftPM projects, builds with `-c debug` instead of `-c release`. |
 | `--yes` / `-y` | Accept all device-selection prompts automatically. |
 | `--build-type <type>` | Override build type detection: `docker`, `swift`, `python`, or `compose`. |
 | `--prefix <dir>` | Run from a project directory other than the current working directory. |
