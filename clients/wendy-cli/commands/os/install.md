@@ -8,7 +8,7 @@ Lists all supported WendyOS versions from a [GCP bucket](../../../../operations/
 
 This tool supports both NVME and SD flashing of [WendyOS](../../../../wendyos/) (using `dd`), as well as [Wendy Lite](../../../../wendy-lite/) (ESP32c6).
 
-1. Lists all available OS releases
+1. Resolves the OS version — uses `--version` if provided, otherwise defaults to the latest release (or the latest nightly if `--nightly` is passed).
 2. Upon selection, lists available disks (or microcontrollers) to flash to.
 3. [Downloads the file](./download.md) to local developer machine [cache](./cache.md)
 4. Flashes the device
