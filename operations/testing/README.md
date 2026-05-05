@@ -34,7 +34,7 @@ The following named test cases are registered in the pipeline:
 | `python-no-unshare` | ✅ | ✅ | Verifies `unshare` syscall is blocked by the default seccomp profile (WDY-1099) |
 | `otel-localhost-only` | ✅ | ✅ | Verifies OTEL receivers bind to 127.0.0.1 only (WDY-1097, WDY-1100) |
 
-Swift tests are excluded from the default Linux suite because Swift container builds require macOS. They can still be run manually on Linux by specifying them via the `INPUT_TESTS` workflow input — the Linux runner no longer skips them automatically when explicitly requested.
+Swift tests are excluded from the default Linux suite because Swift container builds require macOS. They can still be run manually on Linux by specifying them via the `INPUT_TESTS` workflow input — the Linux runner skips any `swift-*` test when it appears in `INPUT_TESTS`.
 
 ## Device discovery
 

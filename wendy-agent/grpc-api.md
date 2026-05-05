@@ -15,6 +15,30 @@ Both **v1** and **v2** of the API are registered on the agent's gRPC server simu
 
 ---
 
+## v1 Notes
+
+### `RunContainerLayerHeader` (`wendy.agent.services.v1`)
+
+The `RunContainerLayerHeader` message describes a single image layer sent to the agent during a `RunContainer` call.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `digest` | `string` | Layer digest (e.g. `sha256:…`) |
+| `size` | `int64` | Compressed layer size in bytes |
+| `diff_id` | `string` | Uncompressed diff ID |
+| `gzip` | `bool` | **Deprecated.** Whether the layer is gzip-compressed. Use `compression` instead. Kept for backward compatibility with older CLI versions that do not send `compression`. |
+| `compression` | `CompressionType` | Compression format of the layer blob. When set to a non-zero value, takes precedence over `gzip`. |
+
+#### `CompressionType` enum
+
+| Value | Number | Description |
+|-------|--------|-------------|
+| `COMPRESSION_GZIP` | `0` | Default. Treated as gzip when `gzip=true`, uncompressed when `gzip=false`. |
+| `COMPRESSION_ZSTD` | `1` | Zstandard-compressed layer. |
+| `COMPRESSION_NONE` | `2` | Uncompressed layer. |
+
+---
+
 ## v2 Services
 
 All v2 proto files live under `Proto/wendy/agent/services/v2/`. Generated Go code is in `go/proto/gen/agentpb/v2/` (`go_package` = `github.com/wendylabsinc/wendy/proto/gen/agentpb/v2;agentpbv2`).
