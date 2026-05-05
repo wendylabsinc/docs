@@ -55,6 +55,9 @@ bash-completion v2 is detected by probing standard locations (`${XDG_DATA_HOME}/
 |---|---|
 | `--shell bash\|zsh\|fish\|powershell` | Override shell auto-detection |
 | `--print-path` | Dry run — print the computed script and rc paths, then exit without writing anything |
+| `--stdout` | Print the completion script to stdout without writing any files or modifying rc files |
+
+`--stdout` and `--print-path` are mutually exclusive; combining them returns an error.
 
 ### Examples
 
@@ -75,5 +78,13 @@ Check where files would be written without writing them:
 ```sh
 wendy completion install --shell fish --print-path
 ```
+
+Print the completion script to stdout (useful for Homebrew formula staging):
+
+```sh
+wendy completion install --shell bash --stdout
+```
+
+The `--stdout` flag is intended for package managers such as Homebrew that call the binary directly and expect the completion script on stdout (e.g. via `generate_completions_from_executable`). It prints the script for the selected shell and exits without touching the filesystem or shell rc files.
 
 After installation, restart your shell (or source the relevant rc file) for completions to take effect. Fish and bash-completion v2 load the script automatically on the next shell start without any rc change.
