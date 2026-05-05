@@ -80,11 +80,11 @@ These variables are defined in the distro conf (`conf/distro/wendyos.conf`) with
 
 ### WENDYOS_DEBUG
 
-Enable debug packages (extra tools, verbose logging) in the image.
+Enable the `debug-tweaks` image feature, which sets an empty root password, enables `PermitEmptyPasswords`, and enables `PermitRootLogin` via SSH.
 
 ```bitbake
-WENDYOS_DEBUG = "1"   # include debug packages
-WENDYOS_DEBUG = "0"   # production-minimal image (default for hardware)
+WENDYOS_DEBUG = "1"   # enable debug-tweaks (development builds)
+WENDYOS_DEBUG = "0"   # production image — no empty passwords, no passwordless root SSH (default)
 ```
 
 ### WENDYOS_DEBUG_UART
@@ -95,6 +95,17 @@ Enable verbose UART debug output during boot.
 WENDYOS_DEBUG_UART = "1"   # verbose boot output
 WENDYOS_DEBUG_UART = "0"   # silent (default for production)
 ```
+
+### WENDYOS_SSHD
+
+Include the OpenSSH server (`sshd`) in the image.
+
+```bitbake
+WENDYOS_SSHD = "1"   # include openssh-sshd (ssh-server-openssh image feature)
+WENDYOS_SSHD = "0"   # omit sshd from the image (default)
+```
+
+Set `WENDYOS_SSHD = "1"` in `local.conf` to add SSH access to a build.
 
 ### WENDYOS_PERSIST_JOURNAL_LOGS
 
