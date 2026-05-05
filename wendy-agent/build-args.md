@@ -79,6 +79,17 @@ ARG WENDY_DEBUG=false
 RUN if [ "$WENDY_DEBUG" = "true" ]; then pip install debugpy; fi
 ```
 
+## Container Runtime Environment Variables
+
+The agent injects the following environment variables into every container it starts.
+
+| Variable | Value | Notes |
+|---|---|---|
+| `WENDY_HOSTNAME` | `<app-id>.local` | Per-app mDNS name (e.g. `my-app.local`). Always set. |
+| `WENDY_DEVICE_HOSTNAME` | `<device>.local` | Device mDNS hostname (e.g. `wendyos-mighty-kayak.local`). Omitted if the OS hostname is unavailable. |
+
+`WENDY_HOSTNAME` is the mDNS name for the specific app and is unique per app. `WENDY_DEVICE_HOSTNAME` is the hostname of the device itself — the same name a browser or other client uses to reach the device. Use `WENDY_DEVICE_HOSTNAME` when you need the name that matches the device's TLS certificate CN/SANs or that a user would actually visit (e.g. for self-signed cert generation, "now serving on …" banners, or share links).
+
 ## Hook Environment Variables
 
 The following variables are expanded inside `postStart` CLI hooks in `wendy.json`. They are **not** Docker build args.
