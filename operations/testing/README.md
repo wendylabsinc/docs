@@ -23,6 +23,7 @@ The following named test cases are registered in the pipeline:
 | `swift-hello` | ✅ | ❌ | Basic Swift app smoke test |
 | `swift-network` | ✅ | ❌ | Swift app with network entitlement |
 | `swift-bluetooth` | ✅ | ❌ | Swift app with Bluetooth entitlement |
+| `swift-resources` | ✅ | ❌ | Swift app verifying SwiftPM resource bundle syncing |
 | `python-hello` | ✅ | ✅ | Basic Python app smoke test |
 | `python-network` | ✅ | ✅ | Python app with network entitlement |
 | `python-gpu` | ✅ | ✅ | Python app with GPU entitlement |
