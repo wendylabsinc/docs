@@ -69,7 +69,7 @@ IMAGE_FEATURES += "dev-pkgs"             # add -dev packages for every installed
 IMAGE_FEATURES += "tools-debug"          # gdb, strace, etc.
 ```
 
-The production RPi image does NOT include `ssh-server-openssh` or `debug-tweaks` by default. The VM image includes both.
+The `wendyos-image` recipe does not include `ssh-server-openssh` or `debug-tweaks` by default. Both are opt-in: set `WENDYOS_SSHD = "1"` to add the OpenSSH server, and `WENDYOS_DEBUG = "1"` to enable debug tweaks (empty root password, passwordless root SSH).
 
 ### Step 4: Add packages
 
@@ -143,13 +143,15 @@ IMAGE_INSTALL:append = " packagegroup-my-app"
 
 ### Enabling SSH in a production image
 
+Set `WENDYOS_SSHD = "1"` in `local.conf`, or add the feature directly in your image recipe:
+
 ```bitbake
 IMAGE_FEATURES += "ssh-server-openssh"
 ```
 
 ### Enabling debug tweaks (empty root password)
 
-Only for development images:
+Only for development images. Set `WENDYOS_DEBUG = "1"` in `local.conf`, or add the feature directly:
 
 ```bitbake
 IMAGE_FEATURES += "debug-tweaks"
