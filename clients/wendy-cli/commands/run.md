@@ -36,3 +36,11 @@ When running a Swift Package Manager project on a macOS target, `wendy run`:
 | `--prefix <dir>` | Run from a project directory other than the current working directory. |
 | `--product <name>` | Swift Package Manager product to build and run (Swift projects only). |
 | `--user-args <args>` | Extra arguments to pass to the container at runtime. |
+
+## postStart hook process lifetime
+
+When a `postStart.cli` hook is configured in `wendy.json`, `wendy run` starts the hook command after the app is ready and tracks its process lifetime.
+
+On **Windows**, the entire process tree spawned by the hook — including grandchildren started via `start /B` — is terminated when `wendy run` exits or is interrupted. This is implemented using a Windows Job Object with `KILL_ON_JOB_CLOSE`; closing the job handle causes the kernel to terminate every process assigned to it. If Job Object creation is unavailable, `wendy run` falls back to `taskkill /T /F`, which terminates the direct child and its descendants as long as the parent process is still alive.
+
+On **Unix**, the default shell process-group cleanup is sufficient; no additional termination logic is applied.
