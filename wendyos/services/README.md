@@ -25,7 +25,7 @@ WendyOS is a Yocto-based Linux distribution managed entirely by systemd. This do
 | `rpi5-eeprom-nvme-config.service` | `meta-rpi-extensions/recipes-bsp/rpi-eeprom` | One-shot: sets `PCIE_PROBE=1` and `BOOT_ORDER=0xf461` in the RPi 5 EEPROM for NVMe boot |
 | `wendyos-mdns.service` | `recipes-connectivity/avahi` | Writes the Avahi service definition for `_wendyos._udp` discovery on port 50051 |
 | `systemd-resolved.service` | upstream (systemd) | Optional stub DNS resolver; enabled by adding `resolved` to `DISTRO_FEATURES` at build time. When not enabled, NetworkManager manages `/etc/resolv.conf` directly. |
-| NetworkManager | upstream (meta-networking) | Manages all network interfaces (WiFi, USB gadget `usb0`) |
+| systemd-networkd | upstream (meta-networking) | Manages all network interfaces (WiFi, USB gadget `usb0`) |
 | avahi-daemon | upstream (meta-connectivity) | Publishes and resolves mDNS/DNS-SD records |
 | serial-getty@ttyAMA0.service / serial-getty@ttyS0.service | `recipes-core/systemd` | Provides a login shell on the debug UART |
 
@@ -80,7 +80,7 @@ wendyos-device-name-generate.service
 
 1. `/data` must be mounted before any bind mount or identity service runs.
 2. `wendyos-etc-binds.service` must complete before UUID and device-name generation so the generated files land on the persistent `/data` volume.
-3. `gadget-setup.service` runs before `NetworkManager` so the `usb0` interface exists when NM starts.
+3. `gadget-setup.service` runs before `systemd-networkd` so the `usb0` interface exists when networkd starts.
 4. `containerd.service` must be running and `/var/lib/containerd` must be bind-mounted before `wendyos-agent.service` starts.
 5. EEPROM services (RPi 5 only) run after `multi-user.target` and use a flag file (`/var/lib/wendyos/eeprom-updated`, `/var/lib/wendyos/eeprom-nvme-updated`) to guarantee they execute at most once.
 
