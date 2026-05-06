@@ -24,7 +24,8 @@ WendyOS is a Yocto-based Linux distribution managed entirely by systemd. This do
 | `rpi5-eeprom-config.service` | `meta-rpi-extensions/recipes-bsp/rpi-eeprom` | One-shot: sets `PSU_MAX_CURRENT=3000` in the RPi 5 EEPROM for reliable USB gadget operation; reboots to apply, then never runs again |
 | `rpi5-eeprom-nvme-config.service` | `meta-rpi-extensions/recipes-bsp/rpi-eeprom` | One-shot: sets `PCIE_PROBE=1` and `BOOT_ORDER=0xf461` in the RPi 5 EEPROM for NVMe boot |
 | `wendyos-mdns.service` | `recipes-connectivity/avahi` | Writes the Avahi service definition for `_wendyos._udp` discovery on port 50051 |
-| systemd-networkd | upstream (systemd) | Manages all network interfaces (WiFi, USB gadget `usb0`) |
+| `systemd-resolved.service` | upstream (systemd) | Optional stub DNS resolver; enabled by adding `resolved` to `DISTRO_FEATURES` at build time. When not enabled, NetworkManager manages `/etc/resolv.conf` directly. |
+| systemd-networkd | upstream (meta-networking) | Manages all network interfaces (WiFi, USB gadget `usb0`) |
 | avahi-daemon | upstream (meta-connectivity) | Publishes and resolves mDNS/DNS-SD records |
 | serial-getty@ttyAMA0.service / serial-getty@ttyS0.service | `recipes-core/systemd` | Provides a login shell on the debug UART |
 
