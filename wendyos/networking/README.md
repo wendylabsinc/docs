@@ -19,7 +19,7 @@ WendyOS device                          Host computer
 | Component | Role | Source |
 |---|---|---|
 | `gadget-setup.sh` | Configures the USB gadget in configfs at boot | `recipes-core/gadget-setup/` |
-| NetworkManager | Manages `usb0` IP configuration | `recipes-connectivity/networkmanager/` |
+| systemd-networkd | Manages `usb0` IP configuration | `recipes-core/systemd/` |
 | dnsmasq | Optional on-device DHCP server for `usb0` | `recipes-support/gadget-network-config/` |
 | radvd | IPv6 Router Advertisement daemon on `usb0` | `recipes-connectivity/radvd/` |
 | Avahi | mDNS service broadcasting (`_wendyos._udp`) | `recipes-connectivity/avahi/` |
