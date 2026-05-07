@@ -92,6 +92,10 @@ Device nodes are bind-mounted into the container with `noexec` set.
 
 `persist` entitlements create a named volume on the host and bind-mount it at the declared path inside the container. Volumes survive container restarts and re-deployments.
 
+The `path` field describes a destination inside the Linux container. It is validated using POSIX path semantics regardless of the host OS running the CLI or agent, so paths such as `/data` and `/models` are always accepted and host-style paths such as `C:\data` are always rejected.
+
+The OCI mount destination is cleaned using POSIX rules before the spec is written.
+
 ---
 
 ## Code signing
