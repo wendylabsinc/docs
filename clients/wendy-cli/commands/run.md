@@ -21,6 +21,17 @@ When running a Swift Package Manager project on a macOS target, `wendy run`:
 4. Automatically syncs any sibling `.bundle` and `.resources` directories found in the build products directory alongside the binary, so SwiftPM resource bundles are available at runtime.
 5. Syncs `sandbox.sb` from the project root if present, and any additional files declared under `files` in `wendy.json`.
 
+## Swift Package Manager projects — host requirements
+
+Both the macOS-target and Linux-target Swift paths shell out to a host Swift toolchain. The following host OS requirements apply when no `Dockerfile` is present (or when `--build-type=swift` is set explicitly):
+
+| Target platform | Supported host OS | Notes |
+|-----------------|------------------|-------|
+| macOS device | macOS only | Linux's Swift toolchain cannot cross-compile to macOS. |
+| Linux device | macOS or Linux | swift-container-plugin does not yet ship for Windows. |
+
+On a **Windows host**, `wendy run` returns an actionable error for Swift projects that would require the host toolchain. Providing a `Dockerfile` bypasses these restrictions — the build is routed through Docker buildx, which works on all platforms.
+
 ## Flags
 
 | Flag | Description |
