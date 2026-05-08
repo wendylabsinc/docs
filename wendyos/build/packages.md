@@ -85,12 +85,32 @@ Yocto package names differ from the upstream project names. These are the most c
 | openssh | `openssh` | poky |
 | openssh server | `openssh-sshd` | poky |
 | openssh SFTP | `openssh-sftp-server` | poky |
+| GStreamer core + base plugins | `gstreamer1.0-plugins-base` | meta-multimedia |
+| GStreamer good plugins (VP8/vp8enc, etc.) | `gstreamer1.0-plugins-good` | meta-multimedia |
+| GStreamer bad plugins | `gstreamer1.0-plugins-bad` | meta-multimedia |
+| GStreamer ugly plugins (H.264/x264enc) | `gstreamer1.0-plugins-ugly` | meta-multimedia |
+| GStreamer libav (FFmpeg) | `gstreamer1.0-libav` | meta-multimedia |
+| GStreamer NVIDIA V4L2 plugins (Tegra) | `gstreamer1.0-plugins-nvvideo4linux2` | meta-tegra |
 
 To search for a package name from a recipe name:
 
 ```bash
 bitbake -e <recipe-name> | grep ^PACKAGES
 ```
+
+---
+
+## GStreamer PACKAGECONFIG Customizations
+
+WendyOS applies the following PACKAGECONFIG overrides to the GStreamer plugin packages:
+
+| Package | Change | Reason |
+|---|---|---|
+| `gstreamer1.0-plugins-good` | `vpx` enabled | Provides `vp8enc` + `webmmux` for VP8 video streaming fallback |
+| `gstreamer1.0-plugins-ugly` | `x264` enabled | Provides `x264enc` (H.264 software encoder) for video streaming |
+| `gstreamer1.0-plugins-bad` | `vulkan` disabled | WendyOS disables both x11 and Wayland; `vulkansink` requires a windowing system and causes a configure-time error |
+
+The x264 encoder carries a commercial license flag. WendyOS accepts it globally via `LICENSE_FLAGS_ACCEPTED += "commercial"` in `wendyos.conf`.
 
 ---
 
