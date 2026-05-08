@@ -102,6 +102,15 @@ go build -ldflags "-s -w -X github.com/wendylabsinc/wendy/internal/shared/versio
 
 A `dev` version is embedded when `VERSION` is not set.
 
+## Building the Go CLI from the Swift tree
+
+When working in the `swift/` directory (e.g. on the macOS companion app), you can build the Go CLI without switching directories:
+
+```sh
+cd swift
+make build-cli   # delegates to ../go build-cli → go/bin/wendy
+```
+
 ## Running locally without overwriting your installed binaries
 
 ### CLI
@@ -176,6 +185,8 @@ sudo ./bin/wendy-agent
 ```
 
 The agent listens on port `50051` (plaintext, pre-provisioning) and port `50052` (mTLS, post-provisioning). The OTEL collector listens on `4317` (gRPC) and `4318` (HTTP). All ports can be overridden via environment variables — see [debugging.md](debugging.md).
+
+If a required port is already occupied when the agent starts, it exits with a message identifying the service name and port number, and suggests quitting any other running WendyAgentMac instance or freeing the port.
 
 ## Dependency License Checks
 
