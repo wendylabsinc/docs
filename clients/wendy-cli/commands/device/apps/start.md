@@ -2,6 +2,8 @@ Starts an app by name. If the app-name argument is not provided, and the termina
 
 By default, after starting the app the CLI attaches to the container's output stream and prints logs to the terminal. Press **Ctrl-C** to detach.
 
+Starting an app always applies the **`UNLESS_STOPPED`** restart policy, so the agent automatically restarts the container if it exits unexpectedly. The container only stays stopped when it is explicitly stopped (e.g. via `wendy device apps stop`).
+
 ## Flags
 
 | Flag | Description |
