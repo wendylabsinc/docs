@@ -37,6 +37,15 @@ The `RunContainerLayerHeader` message describes a single image layer sent to the
 | `COMPRESSION_ZSTD` | `1` | Zstandard-compressed layer. |
 | `COMPRESSION_NONE` | `2` | Uncompressed layer. |
 
+### `StartContainerRequest` (`wendy.agent.services.v1`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `app_name` | `string` | Name of the app to start. |
+| `restart_policy` | `optional RestartPolicy` | Restart policy override applied at start time. When unset the agent uses its configured default. |
+
+When `restart_policy` is provided, the agent updates the container's restart policy label before starting the task.
+
 ---
 
 ## v2 Services
@@ -323,6 +332,13 @@ Manages app container lifecycle, volumes, and resource stats.
 | `ListVolumes` | `ListVolumesRequest` | `ListVolumesResponse` | Unary |
 | `RemoveVolume` | `RemoveVolumeRequest` | `RemoveVolumeResponse` | Unary |
 | `ListContainerStats` | `ListContainerStatsRequest` | `ListContainerStatsResponse` | Unary |
+
+### `StartContainerRequest` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `app_name` | `string` | Name of the app to start. |
+| `restart_policy` | `optional RestartPolicy` | Restart policy override applied at start time. When unset the agent uses its configured default. |
 
 ### `ContainerStreamResponse` (`oneof response_type`)
 
