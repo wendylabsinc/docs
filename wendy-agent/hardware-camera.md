@@ -27,6 +27,28 @@ For generic capability inspection:
 wendy device hardware list --category camera
 ```
 
+## GStreamer Support
+
+WendyOS includes a full GStreamer stack for camera streaming pipelines. The following packages are installed on all images:
+
+| Package | Contents |
+|---|---|
+| `gstreamer1.0-plugins-base` | Core elements: `v4l2src`, `videoconvert`, `capsfilter`, etc. |
+| `gstreamer1.0-plugins-good` | `vp8enc`, `webmmux`, `rtpvp8pay`, and other good-quality plugins |
+| `gstreamer1.0-plugins-bad` | Extended elements (Vulkan sink is disabled — no windowing system) |
+| `gstreamer1.0-plugins-ugly` | `x264enc` (H.264 software encoder) |
+| `gstreamer1.0-libav` | FFmpeg-backed codec elements |
+
+On Jetson targets, `gstreamer1.0-plugins-nvvideo4linux2` is also installed, providing the `nvv4l2h264enc` hardware H.264 encoder.
+
+### Available encoders
+
+| Encoder | GStreamer element | Hardware |
+|---|---|---|
+| H.264 (NVIDIA hardware) | `nvv4l2h264enc` | Jetson only |
+| H.264 (software) | `x264enc` | All targets |
+| VP8 | `vp8enc` | All targets |
+
 ## App Configuration
 
 ```json
