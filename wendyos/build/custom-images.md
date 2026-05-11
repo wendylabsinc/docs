@@ -200,8 +200,9 @@ WIC (Wic Image Creator) kickstart files (`.wks`) define the disk partition layou
 |---|---|---|
 | `wic/wendyos-rpi.wks` | RPi machines | MBR: 256 MB FAT32 `/boot`, 4 GB ext4 `/`, 2 GB ext4 `/data` |
 | `wic/wendyos-vm.wks` | VM machine | GPT: 256 MB EFI `/boot`, 8 GB ext4 `/`, 2 GB ext4 `/data` |
-| `wic/rpi-partuuid.wks` | `raspberrypi5-wendyos` (wendyos repo) | GPT with PARTUUID-based fstab |
+| `wic/rpi-partuuid.wks` | `raspberrypi5-wendyos`, `raspberrypi4-64-wendyos` (wendyos repo) | GPT with PARTUUID-based fstab (RPi 4/5) |
 | `wic/rpi-nvme-partuuid.wks` | `raspberrypi5-nvme-wendyos` | GPT, NVMe target |
+| `wic/rpi-mbr.wks` | `raspberrypi3-64-wendyos` (wendyos repo) | MBR with filesystem-label-based fstab; required because the BCM2837 GPU bootrom can only read MBR-partitioned FAT32 |
 
 To use a custom partition layout:
 

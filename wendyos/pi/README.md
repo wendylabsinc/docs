@@ -4,7 +4,10 @@ WendyOS supports **Raspberry Pi 5**, **Raspberry Pi 4**, and **Raspberry Pi 3** 
 
 ## Partition Layout
 
-Raspberry Pi images use WIC (OpenEmbedded Image Creator) with a GPT partition table.
+Raspberry Pi images use WIC (OpenEmbedded Image Creator). The partition table format depends on the board:
+
+- **Raspberry Pi 4 and 5** use a **GPT** partition table (`rpi-partuuid.wks`). Partitions are referenced by PARTUUID in `cmdline.txt` and `fstab`.
+- **Raspberry Pi 3** uses an **MBR** (msdos) partition table (`rpi-mbr.wks`). The BCM2837 GPU bootrom can only read MBR-partitioned FAT32 and cannot locate `bootcode.bin` on a GPT disk, so the board never boots from a GPT image. Partitions are referenced by filesystem label instead of PARTUUID.
 
 ### SD card layout
 
