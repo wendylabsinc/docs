@@ -41,6 +41,10 @@ WendyOS includes a full GStreamer stack for camera streaming pipelines. The foll
 
 On Jetson targets, `gstreamer1.0-plugins-nvvideo4linux2` is also installed, providing the `nvv4l2h264enc` hardware H.264 encoder.
 
+### GStreamer invocation
+
+The agent invokes `gst-launch` with the `-q` (quiet) flag to suppress status messages such as `"Setting pipeline to PLAYING"` from being written to stdout. Without this flag, those messages corrupt the binary H.264 or VP8 stream read from stdout.
+
 ### Available encoders
 
 | Encoder | GStreamer element | Hardware |
@@ -48,6 +52,12 @@ On Jetson targets, `gstreamer1.0-plugins-nvvideo4linux2` is also installed, prov
 | H.264 (NVIDIA hardware) | `nvv4l2h264enc` | Jetson only |
 | H.264 (software) | `x264enc` | All targets |
 | VP8 | `vp8enc` | All targets |
+
+### H.264 profile
+
+All H.264 encoder pipelines constrain output to `profile=high` via a `video/x-h264,profile=high` caps filter. This ensures compatibility with iOS hardware decoders (AVFoundation / VideoToolbox), which only support Baseline, Main, and High profiles. Without this constraint, `x264enc` may emit H.264 High 4:4:4 Predictive (profile 244), which causes `VTDecompressionSession` to return error `-8969` on every frame.
+
+This applies to `v4l2h264enc`, `x264enc`, `openh264enc`, and any custom encoder element whose name contains `h264`.
 
 ## App Configuration
 
