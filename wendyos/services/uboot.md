@@ -62,17 +62,29 @@ The kernel command line is assembled by meta-raspberrypi from several sources. W
 console=tty1
 ```
 
+The root partition is identified differently depending on the board:
+
+- **RPi 4 and 5** (GPT layout): `root=PARTUUID=<uuid>` — a stable UUIDv4 assigned at build time.
+- **RPi 3** (MBR layout): `root=LABEL=root` — the filesystem label set in `rpi-mbr.wks`. Under MBR, the kernel exposes PARTUUIDs as `<disk-signature>-<partno>`, not as UUIDv4, so PARTUUID references would not resolve.
+
 The full command line on a typical RPi 5 WendyOS device looks like:
 
 ```
 console=serial0,115200 console=tty1 root=PARTUUID=<uuid> rootfstype=ext4 rootwait
 ```
 
+On RPi 3:
+
+```
+console=serial0,115200 console=tty1 root=LABEL=root rootfstype=ext4 rootwait
+```
+
 | Parameter | Description |
 |-----------|-------------|
 | `console=serial0,115200` | Hardware UART console (alias for the model-appropriate UART device). See [uart.md](uart.md). |
 | `console=tty1` | HDMI framebuffer console added by WendyOS |
-| `root=PARTUUID=<uuid>` | Root partition identified by GPT PARTUUID (stable across device renames) |
+| `root=PARTUUID=<uuid>` | Root partition identified by GPT PARTUUID (RPi 4/5) |
+| `root=LABEL=root` | Root partition identified by filesystem label (RPi 3) |
 | `rootfstype=ext4` | Root filesystem type |
 | `rootwait` | Wait for the block device to become available |
 

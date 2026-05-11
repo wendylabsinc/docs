@@ -69,7 +69,12 @@ The gadget always includes an ACM serial function (`/dev/ttyGS0` on device, `tty
 
 ## fstab
 
-`/etc/fstab` (`recipes-core/base-files/files/rpi-fstab`) mounts:
+`/etc/fstab` is populated from a board-specific template at build time:
+
+- **RPi 4/5** (`rpi-fstab`): mounts partitions by PARTUUID.
+- **RPi 3** (`rpi-mbr-fstab`): mounts partitions by filesystem label. Under MBR the kernel exposes PARTUUIDs as `<disk-signature>-<partno>` rather than UUIDv4, so label-based references are used instead.
+
+RPi 4/5 fstab mounts:
 
 | Partition | Mount point | Options |
 |-----------|-------------|---------|
@@ -77,11 +82,31 @@ The gadget always includes an ACM serial function (`/dev/ttyGS0` on device, `tty
 | `PARTUUID=<root>` | `/` | ext4, noatime |
 | `LABEL=config` | `/config` | vfat, nofail |
 
+RPi 3 fstab mounts:
+
+| Partition | Mount point | Options |
+|-----------|-------------|---------|
+| `LABEL=boot` | `/boot` | vfat, defaults |
+| `LABEL=root` | `/` | ext4, noatime |
+| `LABEL=config` | `/config` | vfat, nofail |
+
 The `nofail` option on `/config` means a missing or unformatted config partition does not block boot. See [Config Partition](../config-partition.md) for details.
 
 ## Disk layout
 
-The WendyOS SD card image (`rpi-partuuid.wks`) uses a GPT layout:
+The partition table format depends on the board:
+
+### RPi 4/5 — GPT (`rpi-partuuid.wks`)
+
+| Partition | Label | Size | Filesystem | Mount |
+|-----------|-------|------|------------|-------|
+| 1 | `boot` | 128 MB | FAT32 | `/boot` |
+| 2 | `config` | 64 MB (default) | FAT32 | `/config` |
+| 3 | `root` | 8 GB | ext4 | `/` |
+
+### RPi 3 — MBR (`rpi-mbr.wks`)
+
+The BCM2837 GPU bootrom on the Pi 3 can only read MBR-partitioned FAT32. The GPT layout used on Pi 4/5 leaves the board unable to find `bootcode.bin` and the system never boots.
 
 | Partition | Label | Size | Filesystem | Mount |
 |-----------|-------|------|------------|-------|
