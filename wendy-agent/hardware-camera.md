@@ -37,7 +37,7 @@ WendyOS includes a full GStreamer stack for camera streaming pipelines. The foll
 | `gstreamer1.0-plugins-good` | `vp8enc`, `webmmux`, `rtpvp8pay`, and other good-quality plugins |
 | `gstreamer1.0-plugins-bad` | Extended elements (Vulkan sink is disabled — no windowing system) |
 | `gstreamer1.0-plugins-ugly` | `x264enc` (H.264 software encoder) |
-| `gstreamer1.0-libav` | FFmpeg-backed codec elements |
+| `gstreamer1.0-libav` | FFmpeg-backed codec elements (`avenc_h264`, etc.) |
 
 On Jetson targets, `gstreamer1.0-plugins-nvvideo4linux2` is also installed, providing the `nvv4l2h264enc` hardware H.264 encoder.
 
@@ -50,14 +50,26 @@ The agent invokes `gst-launch` with the `-q` (quiet) flag to suppress status mes
 | Encoder | GStreamer element | Hardware |
 |---|---|---|
 | H.264 (NVIDIA hardware) | `nvv4l2h264enc` | Jetson only |
-| H.264 (software) | `x264enc` | All targets |
+| H.264 (software, libx264) | `x264enc` | All targets |
+| H.264 (software, FFmpeg) | `avenc_h264` | All targets |
+| H.264 (software, OpenH264) | `openh264enc` | All targets |
 | VP8 | `vp8enc` | All targets |
 
-### H.264 profile
+### H.264 colour format and profile handling
 
-All H.264 encoder pipelines constrain output to `profile=high` via a `video/x-h264,profile=high` caps filter. This ensures compatibility with iOS hardware decoders (AVFoundation / VideoToolbox), which only support Baseline, Main, and High profiles. Without this constraint, `x264enc` may emit H.264 High 4:4:4 Predictive (profile 244), which causes `VTDecompressionSession` to return error `-8969` on every frame.
+All H.264 encoder pipelines insert a `video/x-raw,format=I420` caps filter before the encoder element. This forces 4:2:0 chroma subsampling into the encoder, preventing encoders such as `x264enc` from selecting H.264 High 4:4:4 Predictive (profile 244) when the upstream colour format is 4:4:4. Profile 244 is rejected by VideoToolbox and most hardware decoders.
 
-This applies to `v4l2h264enc`, `x264enc`, `openh264enc`, and any custom encoder element whose name contains `h264`.
+Forcing I420 input does not by itself enforce a specific H.264 output profile; explicit profile caps are added only where needed:
+
+| Encoder | Pipeline segment |
+|---|---|
+| `v4l2h264enc` | `videoconvert ! video/x-raw,format=I420 ! v4l2h264enc ! video/x-h264,profile=baseline` |
+| `x264enc` | `videoconvert ! video/x-raw,format=I420 ! x264enc tune=zerolatency profile=high` |
+| `openh264enc` | `videoconvert ! video/x-raw,format=I420 ! openh264enc` |
+| `avenc_h264` | `videoconvert ! video/x-raw,format=I420 ! avenc_h264` |
+| all others | `videoconvert ! video/x-raw,format=I420 ! <encoder>` |
+
+`v4l2h264enc` is capped to `baseline` because some V4L2 hardware encoders report H.264 support but fail to deliver frames; if no frames are received before the first DQBUF error, the agent falls back to the GStreamer software encoder path automatically.
 
 ## App Configuration
 
