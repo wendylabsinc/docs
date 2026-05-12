@@ -81,18 +81,32 @@ RUN if [ "$WENDY_DEBUG" = "true" ]; then pip install debugpy; fi
 
 ## Hook Environment Variables
 
-The following variables are expanded inside `postStart` CLI hooks in `wendy.json`. They are **not** Docker build args.
+The following variables are expanded inside `postStart` hooks in `wendy.json`. They are **not** Docker build args. Both Unix-style (`${VAR}`) and Windows-style (`%VAR%`) forms are supported for these variables.
 
 | Variable | Value |
 |---|---|
 | `WENDY_HOSTNAME` | Device mDNS hostname (e.g. `wendyos-humble-pepper.local`) |
 | `WENDY_APP_ID` | App ID from `wendy.json` |
 
+Use `openURL` to open a URL in the developer's default browser portably across macOS, Linux, and Windows — the CLI dispatches it directly without a shell:
+
 ```json
 {
   "hooks": {
     "postStart": {
-      "cli": "open http://${WENDY_HOSTNAME}:3000"
+      "openURL": "http://${WENDY_HOSTNAME}:3000"
+    }
+  }
+}
+```
+
+The `cli` field accepts a free-form shell command and also supports variable expansion. However, `open`, `xdg-open`, and `start` are platform-specific; prefer `openURL` for opening URLs:
+
+```json
+{
+  "hooks": {
+    "postStart": {
+      "cli": "echo App started on ${WENDY_HOSTNAME}"
     }
   }
 }

@@ -48,10 +48,36 @@ On a **Windows host**, `wendy run` returns an actionable error for Swift project
 | `--product <name>` | Swift Package Manager product to build and run (Swift projects only). |
 | `--user-args <args>` | Extra arguments to pass to the container at runtime. |
 
-## postStart hook process lifetime
+## postStart hooks
 
-When a `postStart.cli` hook is configured in `wendy.json`, `wendy run` starts the hook command after the app is ready and tracks its process lifetime.
+When a `postStart` hook is configured in `wendy.json`, `wendy run` fires it after the app is ready.
 
-On **Windows**, the entire process tree spawned by the hook — including grandchildren started via `start /B` — is terminated when `wendy run` exits or is interrupted. This is implemented using a Windows Job Object with `KILL_ON_JOB_CLOSE`; closing the job handle causes the kernel to terminate every process assigned to it. If Job Object creation is unavailable, `wendy run` falls back to `taskkill /T /F`, which terminates the direct child and its descendants as long as the parent process is still alive.
+### `openURL`
+
+`openURL` opens a URL in the developer's default browser without a shell. It works uniformly on macOS, Linux, and Windows and is the recommended way to open a URL at startup:
+
+```json
+{
+  "hooks": {
+    "postStart": {
+      "openURL": "http://${WENDY_HOSTNAME}:3001"
+    }
+  }
+}
+```
+
+If the browser cannot be opened, a warning is printed and `wendy run` continues normally. `openURL` is fire-and-forget and does not affect the process tracked by `wendy run`.
+
+### `cli`
+
+`cli` runs a free-form shell command on the developer's machine. It is dispatched through the platform shell (`sh -c` on Unix, `cmd.exe /S /C` on Windows). `wendy run` tracks this child process for waiting and cancellation; the returned handle is used to clean up when `wendy run` exits.
+
+`openURL` and `cli` can be set together — `openURL` fires first, then `cli` is spawned.
+
+> **Note:** `open`, `xdg-open`, and `start` inside `cli` are platform-specific. Use `openURL` to open a URL portably. WendyOS warns at config load time when `hooks.postStart.cli` begins with one of these commands.
+
+### Hook process lifetime
+
+On **Windows**, the entire process tree spawned by a `cli` hook — including grandchildren started via `start /B` — is terminated when `wendy run` exits or is interrupted. This is implemented using a Windows Job Object with `KILL_ON_JOB_CLOSE`; closing the job handle causes the kernel to terminate every process assigned to it. If Job Object creation is unavailable, `wendy run` falls back to `taskkill /T /F`, which terminates the direct child and its descendants as long as the parent process is still alive.
 
 On **Unix**, the default shell process-group cleanup is sufficient; no additional termination logic is applied.
