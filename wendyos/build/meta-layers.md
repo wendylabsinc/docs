@@ -2,7 +2,7 @@
 
 WendyOS is built from a set of stacked Yocto / OpenEmbedded meta-layers. Every build begins with Poky (the reference OE distribution) and adds hardware BSP layers, then the WendyOS application layer on top.
 
-All layers are pinned to the **Scarthgap** branch (`LAYERSERIES_COMPAT = "scarthgap"`).
+Layers declare compatibility with `LAYERSERIES_COMPAT_wendyos = "scarthgap wrynose"`. Orin, RPi, and QEMU boards build on **scarthgap**; AGX Thor builds on **wrynose**.
 
 ---
 
@@ -24,7 +24,7 @@ Layers are assembled per board by `bblayers.conf` fragments under `conf/template
 | `meta-virtualization` | `git.yoctoproject.org/meta-virtualization` | `virtualization-layer` | containerd, runc, nerdctl |
 | `meta-raspberrypi` | `github.com/agherzan/meta-raspberrypi` | `raspberrypi` | RPi BSP (RPi builds only) |
 | `meta-tegra` | `github.com/OE4T/meta-tegra` | `tegra` | NVIDIA Jetson BSP (Tegra builds only) |
-| `meta-mender` | Mender project | `mender` | OTA update client (Tegra builds only) |
+| `meta-mender` | Mender project | `mender` | OTA update client (Orin tegra234 builds only) |
 | `wendyos` (the repo itself) | local | `wendyos` | WendyOS distro and images |
 
 ### meta-wendyos-rpi (standalone RPi layer)
@@ -116,7 +116,9 @@ NVIDIA Jetson BSP layer (OE4T project). Provides:
 - Tegra-specific flash utilities (`tegraflash`)
 - NVIDIA Container Toolkit support
 
-### meta-mender (wendyos repo, Tegra targets only)
+The common meta-tegra paths (meta-tegra, meta-tegra-community, meta-tegra-extensions) are shared between Orin and Thor via `conf/template/include/bblayers/tegra-thor.inc`. The Orin (`tegra.inc`) build layers the Mender stack on top of that shared base; the Thor build uses `tegra-thor.inc` directly (no Mender in Phase 1).
+
+### meta-mender (wendyos repo, Orin tegra234 targets only)
 
 Adds Mender OTA update support:
 
@@ -125,7 +127,7 @@ Adds Mender OTA update support:
 - Mender artifact creation at image build time
 - `MENDER_FEATURES_ENABLE` activates Mender via `mender-full` class
 
-Mender is only included for Tegra targets. RPi and QEMU builds skip the `mender.inc` include fragment.
+Mender is gated on `WENDYOS_MENDER`. It is enabled by default only for Orin (tegra234). RPi, QEMU, and Thor (tegra264) builds skip the `mender.inc` include fragment. Set `WENDYOS_MENDER = "1"` in `local.conf` to opt in on any target.
 
 ### WendyOS layer (meta-wendyos / meta-wendyos-rpi / meta-wendyos-virtual)
 
@@ -139,7 +141,7 @@ The top-level application layer. Provides:
 - `edgeos-identity` — generates device UUID and friendly name on first boot
 - `edgeos-motd` — login banner
 - `systemd-mount-containerd` — systemd mount unit for the `/data` partition (containerd storage)
-- WIC kickstart files defining disk partition layouts
+- WIC kickstart files defining disk partition layouts (located under `files/wic/`)
 
 ---
 
@@ -153,7 +155,7 @@ All WendyOS layers are registered with `BBFILE_PRIORITY = "50"`, which is higher
 
 1. Clone the layer into `repos/` (either by editing `bootstrap.sh` or manually).
 2. Add its path to `build/conf/bblayers.conf` (or the appropriate include fragment under `conf/template/include/bblayers/`).
-3. Verify the layer is compatible with Scarthgap: `LAYERSERIES_COMPAT` in its `conf/layer.conf` must include `"scarthgap"`.
+3. Verify the layer is compatible with the active series: `LAYERSERIES_COMPAT` in its `conf/layer.conf` must include `"scarthgap"` (for Orin/RPi/QEMU boards) or `"wrynose"` (for Thor).
 4. Check its `LAYERDEPENDS` — ensure all upstream layers it depends on are already present.
 5. Run `bitbake-layers show-layers` to confirm the layer is visible.
 
@@ -161,13 +163,18 @@ All WendyOS layers are registered with `BBFILE_PRIORITY = "50"`, which is higher
 
 ## Cloned Upstream Pinning
 
-`bootstrap.sh` clones upstream layers at the `scarthgap` branch tip (HEAD). For reproducible builds you can pin specific commits by editing the `repos` array in `bootstrap.sh`:
+`bootstrap.sh` clones upstream layers at the appropriate branch tip for each board. Orin, RPi, and QEMU boards use the `scarthgap` branch; Thor uses `wrynose`. The sstate-cache is partitioned per layer tree (e.g. `sstate-cache/scarthgap/`, `sstate-cache/wrynose/`) so cross-series builds on the same workspace do not collide. Downloads are shared across series.
 
-```bash
-repos=(
-    "1|git://git.yoctoproject.org/poky.git||scarthgap"
-    ...
-)
-```
+For reproducible builds you can pin specific commits by editing the `repos` array in `bootstrap.sh`, or by providing per-board overrides in `conf/template/boards/<board-id>/repos.overrides`.
 
-The `wendyos` repo supports per-board overrides via `conf/template/boards/<board-id>/repos.overrides`. See the `README.md` in that repo for the override syntax.
+The Thor board (`jetson-agx-thor`) pins the following layer trees in its `repos.overrides`:
+
+| Layer | Branch / source |
+|---|---|
+| bitbake | master (2.19.0) |
+| openembedded-core | wrynose HEAD |
+| meta-yocto | wrynose HEAD |
+| meta-openembedded | wrynose HEAD |
+| meta-virtualization | master HEAD (no wrynose branch upstream) |
+| meta-tegra | master-l4t-r38.4.x |
+| meta-tegra-community | master-l4t-r38.4.x |

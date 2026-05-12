@@ -20,6 +20,7 @@ The Yocto machine name. Set automatically by `bootstrap.sh` based on the `BOARD`
 | `jetson-orin-nano-sd` | `jetson-orin-nano-devkit-wendyos` |
 | `jetson-agx-orin` | `jetson-agx-orin-devkit-nvme-wendyos` |
 | `jetson-agx-orin-emmc` | `jetson-agx-orin-devkit-emmc-wendyos` |
+| `jetson-agx-thor` | `jetson-agx-thor-devkit-nvme-wendyos` |
 | `qemu-arm64` | `qemuarm64-wendyos` |
 
 In the standalone repos:
@@ -51,16 +52,19 @@ Controls the output image formats. Set per machine in `conf/machine/<machine>.co
 | `wic.qcow2` | VM | For UTM / Lima / QEMU on macOS |
 | `wic.vmdk` | VM | For VMware Fusion |
 | `ext4` | All | Raw root filesystem (useful for debugging) |
-| `tegraflash` | Jetson | Complete NVIDIA flash package |
-| `mender` | Jetson | Mender OTA artifact |
+| `tegraflash-tar` | Jetson AGX Thor (L4T 38.x) | Complete NVIDIA flash package (compressed tar) |
+| `tegraflash` | Jetson (L4T 36.x and earlier) | Complete NVIDIA flash package |
+| `mender` | Jetson Orin | Mender OTA artifact |
 
 ### DL_DIR / SSTATE_DIR / TMPDIR
 
 ```bitbake
 DL_DIR    = "${TOPDIR}/../downloads"
-SSTATE_DIR = "${TOPDIR}/../sstate-cache"
+SSTATE_DIR = "${TOPDIR}/../sstate-cache/${WENDYOS_LAYER_TREE}"
 # TMPDIR = "/home/dev/yocto-tmp"  # set to a Docker volume path on macOS
 ```
+
+The sstate-cache is partitioned by `WENDYOS_LAYER_TREE` (e.g. `scarthgap`, `wrynose`) so builds for different boards on the same workspace do not share incompatible signatures. Downloads are shared across series.
 
 On macOS builds inside Docker, `TMPDIR`, `DL_DIR`, and `SSTATE_DIR` are pointed at Docker volume mount paths (e.g. `/home/dev/yocto-tmp`, `/home/dev/downloads`, `/home/dev/sstate-cache`) to ensure case-sensitive storage. The `dockerfile.config` mounts these volumes automatically.
 
@@ -77,6 +81,17 @@ Must remain `"2"`. Used by BitBake to detect incompatible `local.conf` format ch
 ## WendyOS-Specific Variables
 
 These variables are defined in the distro conf (`conf/distro/wendyos.conf`) with defaults that can be overridden in `local.conf` or in a machine conf.
+
+### WENDYOS_MENDER
+
+Master switch for the Mender OTA stack and everything that depends on the `/data` partition Mender provides (`mender-esp`, `systemd-mount-containerd`, `swapfile-setup`, `wendyos-etc-binds`, `wendyos-user-data-setup`, etc.).
+
+```bitbake
+WENDYOS_MENDER = "1"   # enable Mender stack and /data partition (default for Orin tegra234)
+WENDYOS_MENDER = "0"   # disable Mender (default for QEMU, RPi, and Thor tegra264)
+```
+
+The smart default enables Mender for all Tegra machines except tegra264 (Thor), and disables it for `qemuall` and `rpi`. Override per-machine or in `local.conf` to opt in or out independently of the SoC.
 
 ### WENDYOS_DEBUG
 
@@ -109,14 +124,16 @@ Set `WENDYOS_SSHD = "1"` in `local.conf` to add SSH access to a build.
 
 ### WENDYOS_PERSIST_JOURNAL_LOGS
 
-Control whether systemd-journal logs are written to persistent storage (`/data`) or to a tmpfs that is cleared on reboot.
+Control whether systemd-journal logs are written to persistent storage or to a tmpfs that is cleared on reboot.
 
 ```bitbake
-WENDYOS_PERSIST_JOURNAL_LOGS = "1"   # logs survive reboots (default for Tegra/real hardware)
-WENDYOS_PERSIST_JOURNAL_LOGS = "0"   # volatile logs in tmpfs (default for RPi and QEMU)
+WENDYOS_PERSIST_JOURNAL_LOGS = "1"   # logs survive reboots
+WENDYOS_PERSIST_JOURNAL_LOGS = "0"   # volatile logs in tmpfs
 ```
 
-Internally this sets `VOLATILE_LOG_DIR` in the distro conf: `"no"` when `1`, `"yes"` when `0`.
+The default tracks `WENDYOS_MENDER`: when Mender provides a `/data` partition, logs are persisted there; when there is no `/data` partition (QEMU, RPi, Thor Phase 1) logs are volatile. Override per-machine or in `local.conf` to decouple this from the Mender setting.
+
+The mechanism used to apply this setting differs by oe-core series: scarthgap uses `VOLATILE_LOG_DIR`; whinlatter and later use `FILESYSTEM_PERMS_TABLES` selection. WendyOS handles this automatically — use `WENDYOS_PERSIST_JOURNAL_LOGS` and the correct backend is selected for the active series.
 
 ### WENDYOS_USB_GADGET
 
@@ -185,8 +202,8 @@ WENDYOS_CONTAINER_RUNTIME = "0"   # omit (not typical)
 Allow the build to update bootloader firmware (Tegra only).
 
 ```bitbake
-WENDYOS_UPDATE_BOOTLOADER = "1"   # update bootloader on flash (default)
-WENDYOS_UPDATE_BOOTLOADER = "0"   # skip bootloader update (used on RPi and QEMU)
+WENDYOS_UPDATE_BOOTLOADER = "1"   # update bootloader on flash (default for Orin)
+WENDYOS_UPDATE_BOOTLOADER = "0"   # skip bootloader update (RPi, QEMU, and Thor Phase 1)
 ```
 
 ### WENDYOS_EFI_DEBUG
