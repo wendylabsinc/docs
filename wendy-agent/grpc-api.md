@@ -192,6 +192,8 @@ Streams a new agent binary to the device and triggers a self-replacement.
 
 Triggers an OS-level update using a Mender artifact.
 
+Before invoking Mender, the agent checks whether the host is a WendyOS OTA target. If the host does not have a WendyOS identity (detected via `/etc/wendy/version.txt` or `/etc/wendyos/device-type`), `UpdateOS` immediately streams a `failed` response with the message `"This setup cannot be updated with wendy os update. Use this machine's normal OS update tools instead. To use WendyOS OTA updates, install WendyOS on supported hardware with wendy os install."` and does not invoke Mender. This applies to macOS agents, generic Linux hosts, and any other non-WendyOS platform.
+
 ### RPCs
 
 | Method | Request | Response | Type |
