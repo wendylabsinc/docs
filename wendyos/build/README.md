@@ -84,9 +84,12 @@ BOARD=rpi5-sd ./bootstrap.sh
 
 Bootstrap performs these steps:
 - Validates that `meta-wendyos` is inside the working directory (required for the Docker volume mount)
-- Clones all upstream Yocto layers into `repos/` at the Scarthgap branch
+- Clones all upstream Yocto layers into `repos/<tree>/` at the pinned SRCREVs, where `<tree>` is the value of `WENDYOS_LAYER_TREE` (default `scarthgap`)
 - Copies `conf/template/boards/<board-id>/local.conf` and `bblayers.conf` into `build/conf/`
-- Creates the Docker build image (`wendyos-build:scarthgap`)
+- Writes `build/.wendyos-env` exporting `WENDYOS_LAYER_TREE` for the active board
+- Creates the Docker build image (`wendyos-build:latest`)
+
+The Yocto core (`bitbake`, `openembedded-core`, `meta-yocto`) is composed from upstream split repos rather than a bundled `poky.git` monolith. Inside each tree the repos are flat siblings — there is no `poky/` umbrella directory.
 
 Available board IDs are the directory names under `conf/template/boards/`.
 
@@ -103,7 +106,8 @@ make build
 On macOS the build runs inside the Docker container automatically. On Linux you can also run it directly:
 
 ```bash
-source ./repos/poky/oe-init-build-env build
+. ./build/.wendyos-env
+. ./repos/$WENDYOS_LAYER_TREE/openembedded-core/oe-init-build-env build
 bitbake wendyos-image
 ```
 
@@ -150,7 +154,8 @@ On macOS, artifacts live inside Docker volumes. Use `make deploy` to copy the Te
 cd meta-wendyos-rpi
 ./bootstrap.sh
 
-source ./repos/poky/oe-init-build-env build
+. ./build/.wendyos-env
+. ./repos/$WENDYOS_LAYER_TREE/openembedded-core/oe-init-build-env build
 bitbake edgeos-rpi-image
 ```
 
@@ -173,7 +178,8 @@ sudo bmaptool copy edgeos-rpi-image-*.wic.bz2 /dev/sdX
 cd meta-wendyos-virtual
 ./bootstrap.sh
 
-source ./repos/poky/oe-init-build-env build
+. ./build/.wendyos-env
+. ./repos/$WENDYOS_LAYER_TREE/openembedded-core/oe-init-build-env build
 bitbake edgeos-vm-image
 ```
 
@@ -186,11 +192,10 @@ Output in `build/tmp/deploy/images/wendyos-vm-arm64/`:
 
 ## Speeding Up Rebuilds
 
-Set persistent `DL_DIR` and `SSTATE_DIR` paths in `build/conf/local.conf`:
+Set a persistent `DL_DIR` path in `build/conf/local.conf`:
 
 ```bitbake
-DL_DIR   = "/shared/yocto/downloads"
-SSTATE_DIR = "/shared/yocto/sstate-cache"
+DL_DIR = "/shared/yocto/downloads"
 ```
 
-Sharing these directories across different builds (different machines, different boards) is safe — BitBake's content-hashed keys ensure correctness. The CI pipeline uses S3-backed sstate with an EBS snapshot L1 cache; see `docs/build-cache.md` in the `wendyos` repo for the setup guide.
+`SSTATE_DIR` is automatically partitioned per layer tree (`sstate-cache/${WENDYOS_LAYER_TREE}`) so builds targeting different Yocto series on the same workspace do not share sstate. Source tarballs (`DL_DIR`) are shared across series — they are keyed by URL and checksum and are always reusable. The CI pipeline uses S3-backed sstate with an EBS snapshot L1 cache; see `docs/build-cache.md` in the `wendyos` repo for the setup guide.
