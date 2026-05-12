@@ -33,7 +33,7 @@ The CLI scans for a connected ESP32 by looking for the Espressif USB serial devi
 
 | Platform | Where it looks | Expected path |
 |----------|---------------|---------------|
-| macOS | `/dev/cu.usbmodem*` (first match) | `/dev/cu.usbmodem*` |
+| macOS | `/dev/cu.usbmodem*` (most recently connected) | `/dev/cu.usbmodem*` |
 | Linux | `/sys/class/tty/ttyACM*` matching VID/PID via sysfs | `/dev/ttyACM0` (typical) |
 | Windows | Not yet implemented | — |
 
