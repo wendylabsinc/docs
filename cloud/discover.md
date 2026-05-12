@@ -10,16 +10,19 @@ wendy cloud discover [flags]
 
 ## Output
 
-Results are **streamed** to the terminal as each device arrives from the backend — rows appear immediately rather than waiting for the full response to buffer. The header is printed before the first result row.
+In an interactive terminal the command shows a **live TUI** that auto-refreshes every 10 seconds. Each row displays the device name, type, IP address, and running agent version. In non-interactive environments (or when `--json` is passed) a JSON array is written to stdout.
 
-```
-ID        Name
---------  ----
-1042      my-jetson
-1099      pi-lab-01
-```
+### TUI keyboard shortcuts
 
-If no devices are found, a descriptive message is printed instead:
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate the device list |
+| `enter` | Copy selected device info as JSON to clipboard |
+| `a` | Copy all devices as JSON to clipboard |
+| `u` | Update the selected device's agent binary in place |
+| `q` / `Ctrl+C` | Quit |
+
+If no devices are found, a descriptive message is shown instead:
 
 - Without `--all`: `No online devices found. Use --all to include offline devices.`
 - With `--all`: `No enrolled devices found.`
@@ -34,9 +37,11 @@ cloud returned more than 10000 devices
 
 ## Flags
 
-| Flag | Description |
-|------|-------------|
-| `--all` | Include offline (not currently connected) devices. By default only online devices are shown. |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--all` | `false` | Include offline (not currently connected) devices. By default only online devices are shown. |
+| `--broker-url` | `$WENDY_BROKER_URL` (or derived from cloud endpoint) | Tunnel broker `host:port` used for version fetching and in-place updates. |
+| `--cloud-grpc` | `""` | Cloud gRPC endpoint. Required when multiple auth sessions exist. |
 
 ## Related
 
