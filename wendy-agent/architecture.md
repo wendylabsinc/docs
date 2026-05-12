@@ -108,6 +108,16 @@ All ports can be overridden with environment variables (`WENDY_AGENT_PORT`, `WEN
 
 After provisioning, the tunnel broker client (`services.TunnelBrokerClient`) opens a `RegisterPresence` streaming RPC to the Wendy Cloud broker. The broker URL defaults to `<cloudHost>:50052`; when the cloud host uses port `443` the same address is used directly. The client reconnects with exponential backoff (1 s – 5 min) on failure.
 
+### TLS trust model for broker connections
+
+Both the agent's tunnel broker client and the CLI's `dialCloudBroker` function build their TLS CA pool by starting from the **system certificate pool** and then optionally appending the stored Wendy CA chain:
+
+- **Agent (`TunnelBrokerClient`):** Seeds the CA pool from the OS system cert pool (falling back to an empty pool if the system pool is unavailable), then appends the Wendy CA chain from `chainPEM` when it is non-empty. Hostname verification is skipped because the broker certificate CN is `localhost`; full chain validation against the combined pool is still performed.
+
+- **CLI (`dialCloudBroker`):** The trust strategy depends on the broker URL:
+  - **Port `:443` (Wendy Cloud):** Standard TLS is used. The system certificate pool is trusted as-is, allowing public CA-signed broker certificates to be verified normally without any custom validation hook.
+  - **Non-`:443` ports (local or on-premises brokers):** The server presents a certificate signed by the Wendy CA. Hostname verification is skipped and a `VerifyConnection` hook validates the chain against the stored Wendy CA bundle (`PemCertificateChain`). If the CA bundle contains no valid certificates, the connection fails.
+
 ## mDNS advertisement
 
 On provisioned devices the agent uses Avahi to advertise `_wendyos._udp` on the mTLS port. Pre-provisioning, the Avahi service file advertises port `50051`. The CLI discovers local devices via this mDNS service type.
