@@ -3,7 +3,7 @@
 `wendy-agent` supports two update mechanisms:
 
 1. **CLI-initiated agent binary update** – the `wendy device update` CLI command downloads a new binary from GitHub and streams it to the running agent over gRPC.
-2. **OS-level update via Mender** – the `wendy device os-update` command instructs the agent to run `mender-update install` with a Mender artifact URL.
+2. **OS-level update via Mender** – the `wendy os update` command instructs the agent to run `mender-update install` with a Mender artifact URL.
 
 There is no built-in automatic timer inside the agent binary itself. Auto-update scheduling (if desired) is done externally via a systemd timer or a cron job that invokes `wendy device update`.
 
@@ -137,7 +137,9 @@ sudo systemctl disable --now wendy-agent-update.timer
 
 ## OS-level update (Mender)
 
-The `UpdateOS` RPC accepts a Mender artifact URL, runs `mender-update install <url>`, streams progress, and reboots on completion. The CLI exposes this via `wendy device os-update`.
+The `UpdateOS` RPC accepts a Mender artifact URL, runs `mender-update install <url>`, streams progress, and reboots on completion. The CLI exposes this via `wendy os update`.
+
+Before running Mender, the agent checks whether the host is a WendyOS OTA target. The check reads `/etc/wendy/version.txt` (older WendyOS builds) and falls back to checking for `/etc/wendyos/device-type` (newer images). If neither marker is present, `UpdateOS` immediately returns a failure response without invoking Mender. Generic Linux hosts with `wendy-agent` installed but no WendyOS identity markers are rejected by this check.
 
 The agent detects the `mender-update` (or legacy `mender`) binary at startup by searching standard `PATH` locations. When found, `mender` appears in the `featureset` field of `GetAgentVersionResponse`.
 
