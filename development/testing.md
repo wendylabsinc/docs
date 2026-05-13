@@ -75,6 +75,8 @@ Integration tests run in `.github/workflows/integration-tests.yml` on both macOS
 
 #### Stable release gate
 
+> **Note:** The macOS integration test job is currently disabled. The stable release gate described below does not run until it is re-enabled.
+
 When a release build is triggered with `publish=true`, the full macOS integration test suite runs as a required gate before the `release` and `publish-linux-repos` jobs proceed. If integration tests fail, neither job runs. Nightly builds (triggered by a `push` event or `publish=false`) skip the integration-test gate and proceed directly to release.
 
 #### PR gate for CI config changes
@@ -91,5 +93,4 @@ When a PR is merged into `main`, the workflow `.github/workflows/integration-tes
 
 1. **Trigger:** Fires on `pull_request` closed events against `main`, but only when the PR was actually merged and does **not** carry the `ai-suggestion` label (to avoid recursive loops).
 2. **Diff fetch:** Downloads the full PR diff via the GitHub CLI.
-3. **Analysis:** Sends the diff, the PR title/body, all existing CI tests (up to a 20 000-byte budget), `go/scripts/test-ci.sh`, and `.github/workflows/integration-tests.yml` to Claude (Anthropic SDK `anthropic==0.97.0`, model `claude-sonnet-4-6`) with a prompt that instructs it to identify uncovered features and generate the necessary test files.
-4. **File writing:** Parses the `<file path="...">...
+3. **Analysis:** Sends the diff, the P
