@@ -4,9 +4,7 @@ WendyOS uses systemd-journald for log management. All services write to the jour
 
 ## Default behaviour
 
-By default, journal logs are stored in volatile memory (`/run/log/journal`) and lost on reboot. This is the default for RPi builds where no `/data` partition is provisioned.
-
-On Tegra/Jetson machines, persistent logging is enabled by default (`WENDYOS_PERSIST_JOURNAL_LOGS=1` in `wendyos.conf`).
+By default, journal logs are stored in volatile memory (`/run/log/journal`) and lost on reboot. The default for a given board tracks `WENDYOS_MENDER`: targets without a Mender-managed `/data` partition (QEMU, RPi, Thor Phase 1) use volatile logs; Orin (tegra234) uses persistent logs.
 
 ## Persistent journal option
 

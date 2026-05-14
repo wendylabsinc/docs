@@ -1,50 +1,31 @@
-# WendyOS on Jetson
+# Jetson
 
-WendyOS supports NVIDIA Jetson devices, with **Jetson Orin Nano** shipped for NVMe and SD card boot configurations.
+WendyOS supports the following NVIDIA Jetson targets:
 
-**Jetson AGX Orin** support is imminent. **Jetson AGX Thor** support is in progress.
+| Board | Machine config | SoC | JetPack / L4T | Mender OTA | Yocto series |
+|---|---|---|---|---|---|
+| Jetson AGX Orin DevKit (NVMe) | `jetson-agx-orin-devkit-nvme-wendyos` | tegra234 | JetPack 6.2.1 / L4T 36.4.4 | Yes | scarthgap |
+| Jetson AGX Orin DevKit (eMMC) | `jetson-agx-orin-devkit-emmc-wendyos` | tegra234 | JetPack 6.2.1 / L4T 36.4.4 | Yes | scarthgap |
+| Jetson Orin Nano DevKit (NVMe) | `jetson-orin-nano-devkit-nvme-wendyos` | tegra234 | JetPack 6.2.1 / L4T 36.4.4 | Yes | scarthgap |
+| Jetson Orin Nano DevKit (SD) | `jetson-orin-nano-devkit-wendyos` | tegra234 | JetPack 6.2.1 / L4T 36.4.4 | Yes | scarthgap |
+| Jetson AGX Thor DevKit (NVMe) | `jetson-agx-thor-devkit-nvme-wendyos` | tegra264 | JetPack 7.1 / L4T 38.4.0 | No (Phase 1) | wrynose |
 
-For **DGX Spark**, install `wendy-agent` on the existing Linux system instead of flashing a WendyOS image.
+---
 
-## Partition Layout
+## AGX Thor (tegra264)
 
-Jetson uses NVIDIA's Tegra partition XML format. WendyOS modifies the BSP-provided layouts to add Mender A/B update support and the `config` partition.
+The AGX Thor target uses the **wrynose** Yocto series. It is built from a separate layer tree cloned into `repos/wrynose/` alongside the scarthgap tree used by Orin boards.
 
-### NVMe layout
+Key differences from Orin builds:
 
-| Partition | ID | Size | FS | Notes |
-|---|---|---|---|---|
-| *(QSPI boot partitions)* | — | — | — | NVIDIA BSP: UEFI, DTB, etc. |
-| UDA | — | — | — | NVIDIA compatibility, unused by WendyOS |
-| APP | p1 | 8 GB | ext4 | Root filesystem A |
-| APP_b | p2 | 8 GB | ext4 | Root filesystem B (Mender A/B) |
-| config | p16 | 64 MB* | FAT32 | Configuration partition |
-| mender_data | p17 | 512 MB* | ext4 | Persistent data, auto-expands on first boot |
+- **No Mender OTA** — Mender on Thor is deferred. `WENDYOS_MENDER = "0"` is set automatically for tegra264. There is no A/B partition layout and no `/data` partition in Phase 1.
+- **Flash format** — produces `tegraflash-tar` (a compressed tar of the tegraflash package) rather than separate `tegraflash` + `mender` artefacts.
+- **Bootloader** — uses NVIDIA prebuilt UEFI firmware (`tegra-uefi-prebuilt`).
 
-### SD card layout
+To bootstrap a Thor build:
 
-The SD card layout mirrors the NVMe layout above, using `mmcblk0` partitions instead of NVMe block devices.
+```bash
+./bootstrap.sh --board jetson-agx-thor
+```
 
-\* Default sizes. See [Build configuration](#build-configuration).
-
-## Config partition
-
-See [Config Partition](../config-partition.md) for full details and usage guidance.
-
-## Mender data partition
-
-The `mender_data` partition (ext4, partition p17) holds Mender state and persistent application data. It is positioned after `APP_b` so it can be expanded to fill remaining disk space.
-
-On first boot, `mender-grow-data.service` automatically expands the partition to use all available free space after the partition table is written.
-
-> **Note:** WendyOS uses `mender_data` (p17) for persistent storage, not `UDA` (p15). UDA is kept in the partition table for NVIDIA compatibility but is not mounted.
-
-## Build configuration
-
-| Variable | Default | Description |
-|---|---|---|
-| `WENDYOS_CONFIG_PART_SIZE_MB` | `64` | Size of the FAT32 config partition in MB |
-| `WENDYOS_CONFIG_PART_NUMBER` | `16` | GPT partition number for config |
-| `MENDER_DATA_PART_NUMBER` | `17` | GPT partition number for mender\_data |
-
-Set these in your `local.conf` or distro config to override defaults.
+See `conf/template/boards/jetson-agx-thor/` in the `meta-wendyos` repo for the board template files.
