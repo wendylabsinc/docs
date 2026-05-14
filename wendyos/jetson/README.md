@@ -20,7 +20,6 @@ Key differences from Orin builds:
 
 - **No Mender OTA** — Mender on Thor is deferred. `WENDYOS_MENDER = "0"` is set automatically for tegra264. There is no A/B partition layout and no `/data` partition in Phase 1.
 - **Flash format** — produces `tegraflash-tar` (a compressed tar of the tegraflash package) rather than separate `tegraflash` + `mender` artefacts.
-- **BPMP serial logging** — disabled by default (`TEGRA_BPMP_SERIAL_LOGGING = "0"`) to suppress BPMP coprocessor messages on the shared UART. Set to `"1"` in `local.conf` when you need BPMP-side firmware diagnostics.
 - **Bootloader** — uses NVIDIA prebuilt UEFI firmware (`tegra-uefi-prebuilt`).
 
 To bootstrap a Thor build:
@@ -29,4 +28,4 @@ To bootstrap a Thor build:
 ./bootstrap.sh --board jetson-agx-thor
 ```
 
-See [`conf/template/boards/jetson-agx-thor/`](../../conf/template/boards/jetson-agx-thor/) for the board template files.
+See `conf/template/boards/jetson-agx-thor/` in the `meta-wendyos` repo for the board template files.

@@ -166,7 +166,7 @@ All WendyOS layers are registered with `BBFILE_PRIORITY = "50"`, which is higher
 
 ## Cloned Upstream Pinning
 
-`bootstrap.sh` clones upstream layers at the appropriate branch tip for each board. Orin, RPi, and QEMU boards use the `scarthgap` branch; Thor uses `wrynose`. The sstate-cache is partitioned per layer tree (e.g. `sstate-cache/scarthgap/`, `sstate-cache/wrynose/`) so cross-series builds on the same workspace do not collide. Downloads are shared across series.
+`bootstrap.sh` clones upstream layers at the appropriate commit tip for each board. Orin, RPi, and QEMU boards use the `scarthgap` series; Thor uses `wrynose`. The sstate-cache is partitioned per layer tree (e.g. `sstate-cache/scarthgap/`, `sstate-cache/wrynose/`) so cross-series builds on the same workspace do not collide. Downloads are shared across series.
 
 For reproducible builds you can pin specific commits by editing the `repos` array in `bootstrap.sh`, or by providing per-board overrides in `conf/template/boards/<board-id>/repos.overrides`.
 
