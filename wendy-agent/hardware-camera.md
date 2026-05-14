@@ -27,6 +27,12 @@ For generic capability inspection:
 wendy device hardware list --category camera
 ```
 
+## PipeWire Camera Sharing
+
+WendyOS routes V4L2 cameras through PipeWire, enabling multiple processes to open the same camera simultaneously without receiving a `EBUSY` error. The `pipewire-v4l2` compatibility shim intercepts V4L2 API calls from applications that use `/dev/video*` directly and redirects them through PipeWire transparently.
+
+Because WendyOS devices have no display server or logind seat, WirePlumber requires explicit configuration to enumerate cameras. The file `/etc/wireplumber/wireplumber.conf.d/60-wireplumber-camera-headless.conf` marks the `monitor.v4l2` component as `required` in WirePlumber's main profile, ensuring cameras are always discovered regardless of seat presence. Camera nodes are visible in `wpctl status` once WirePlumber is running as the `wendy` user.
+
 ## GStreamer Support
 
 WendyOS includes a full GStreamer stack for camera streaming pipelines. The following packages are installed on all images:
