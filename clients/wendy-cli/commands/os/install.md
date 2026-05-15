@@ -35,7 +35,7 @@ The CLI scans for a connected ESP32 by looking for the Espressif USB serial devi
 |----------|---------------|---------------|
 | macOS | `/dev/cu.usbmodem*` (most recently connected) | `/dev/cu.usbmodem*` |
 | Linux | `/sys/class/tty/ttyACM*` matching VID/PID via sysfs | `/dev/ttyACM0` (typical) |
-| Windows | Not yet implemented | — |
+| Windows | `Win32_PnPEntity` via PowerShell, filtered by VID/PID and `Ports` class | `COMN` (e.g. `COM7`) |
 
 If no device is found, the CLI prints instructions for entering bootloader mode:
 
