@@ -43,4 +43,4 @@ The image is written via `dd` with `conv=fdatasync` to ensure the device is flus
 
 ### Windows
 
-The image is written directly to the raw disk device.
+The image is written directly to the raw disk device. After writing, any auto-assigned drive letters are removed from all partitions to prevent phantom drives from appearing in Explorer. For fixed (non-removable) disks, the disk is then taken offline. For removable media (USB, SD, MMC), the offline step is skipped — Windows does not support setting removable media offline, and physically removing the media serves as the eject action.
