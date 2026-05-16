@@ -12,6 +12,8 @@ curl -fsSL https://wendy.sh/install-agent | bash
 
 Or download the script directly from the `wendy-agent` repository (`docs/agent.sh`) and inspect it before running.
 
+The script installs `wendy-agent` if it is not already present, or upgrades it if it is.
+
 ## Package managers
 
 ### Debian / Ubuntu (APT)
@@ -27,7 +29,12 @@ echo "deb [signed-by=/usr/share/keyrings/wendy-archive-keyring.gpg] \
   https://us-central1-apt.pkg.dev/projects/cloud-c7e56 wendy-apt main" \
   | sudo tee /etc/apt/sources.list.d/wendy.list
 sudo apt-get update
-sudo apt-get install -y wendy-agent
+# Install if not present, or upgrade if already installed:
+if dpkg-query -W -f='${Status}' wendy-agent 2>/dev/null | grep -q "install ok installed"; then
+  sudo apt-get install -y --only-upgrade wendy-agent
+else
+  sudo apt-get install -y wendy-agent
+fi
 ```
 
 To install a pre-built `.deb` directly:
@@ -46,8 +53,13 @@ baseurl=https://us-central1-yum.pkg.dev/projects/cloud-c7e56/wendy-yum
 enabled=1
 gpgcheck=0
 EOF
-sudo dnf makecache
-sudo dnf install -y wendy-agent
+sudo dnf makecache --refresh
+# Install if not present, or upgrade if already installed:
+if rpm -q wendy-agent &>/dev/null; then
+  sudo dnf upgrade -y wendy-agent
+else
+  sudo dnf install -y wendy-agent
+fi
 ```
 
 Or install a pre-built `.rpm` directly:
