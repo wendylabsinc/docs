@@ -43,15 +43,23 @@ services:
 wendy run
 ```
 
-Wendy selects a device, builds each service image, pushes them to the device, and starts them concurrently with interleaved log output prefixed by service name:
+Wendy selects a device, builds each service image, pushes them to the device, and starts them concurrently with interleaved log output. Each service's lines are prefixed with a color-coded, column-aligned service name. Colors rotate through cyan, yellow, green, magenta, blue, and red. Log lines are never interleaved mid-line — each line is written atomically:
 
 ```
-[api]    Listening on :8080
-[worker] Connected to api
-[worker] Processing item 1
+[api]     Listening on :8080
+[worker]  Connected to api
+[worker]  Processing item 1
 ```
 
-Press **Ctrl-C** to stop all services.
+Press **Ctrl-C** to stop all services. Services are stopped in reverse dependency order; the CLI prints `Stopping <name>...` for each service and then a final `Stopped N service(s).` summary.
+
+## Detached mode hint
+
+When all services start in detached mode (`--detach`), the CLI prints a hint showing how to stream logs:
+
+```
+Run 'wendy device logs' to stream logs.
+```
 
 ## Service fields
 
