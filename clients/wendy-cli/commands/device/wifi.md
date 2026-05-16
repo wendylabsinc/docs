@@ -9,7 +9,7 @@ Manages WiFi on the host machine running the Wendy CLI (not on a connected Wendy
 Lists WiFi networks visible to the host.
 
 ```sh
-wendy device wifi scan
+wendy device wifi list
 ```
 
 ### `wendy device wifi connect`
