@@ -9,7 +9,7 @@ Wendy uses mutual TLS (mTLS) to authenticate both devices and CLI clients agains
 | Device cert | `wendy-agent` during provisioning | mTLS server identity; stored in `/etc/wendy-agent/provisioning.json` |
 | CLI cert | Developer machine via `wendy auth login` | mTLS client auth when connecting to provisioned devices |
 
-The device's mTLS CA pool is built from the `chainPem` field in `provisioning.json`. CLI clients must present a certificate whose chain terminates at that same CA.
+The device's mTLS CA pool is built from the `chainPem` field in `provisioning.json`. CLI clients must present a certificate whose chain terminates at that same CA. If `chainPem` is absent or empty, the agent refuses to build a TLS configuration and returns an error indicating that the device may need to be re-provisioned.
 
 ## Local development with pki-core
 
