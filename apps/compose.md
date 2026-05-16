@@ -58,7 +58,7 @@ Press **Ctrl-C** to stop all services. Services are stopped in reverse dependenc
 When all services start in detached mode (`--detach`), the CLI prints a hint showing how to stream logs:
 
 ```
-Run 'wendy logs <projectId>' to stream logs.
+Run 'wendy device logs' to stream logs.
 ```
 
 ## Service fields
