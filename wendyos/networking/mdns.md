@@ -113,6 +113,8 @@ dns-sd -L "wendyos-my-device" _wendyos._udp local.
 
 The wendy-agent Go code (`internal/shared/discovery/`) uses `_wendyos._udp` as the service type constant. On Linux it prefers `avahi-browse -rptl _wendyos._udp` when Avahi is installed; otherwise it falls back to the `hashicorp/mdns` library which queries each multicast-capable interface individually. On macOS it uses `dns-sd -B` to browse and `dns-sd -L` to resolve.
 
+Both the primary `avahi-browse` path and the `hashicorp/mdns` fallback path parse all TXT records into a key→value map, including the `tls` record. A device that advertises `tls=true` has `IsMTLS` set to `true` and is contacted on the mTLS port (50052). The fallback path also resolves `wendyosdevice` and `displayname` TXT records, matching the behaviour of the primary path.
+
 IPv6 link-local addresses returned by mDNS are annotated with the zone ID (`%<ifname>`) so that the caller can use them directly in `net.Dial()` calls.
 
 The `MDNSService` struct captures:
@@ -133,3 +135,5 @@ type MDNSService struct {
 | `id` | Device UUID (from `/etc/wendyos/device-uuid`) | `550e8400-e29b-41d4-a716-446655440000` |
 | `name` | Slug device name (from `/etc/wendyos/device-name`) | `my-device` |
 | `displayname` | Title-cased device name | `My Device` |
+| `wendyosdevice` | Device UUID (preferred over `id` when present) | `769dc651-4eb2-49f3-b9f6-3e473f15694a` |
+| `tls` | `"true"` when the device is provisioned and requires mTLS (port 50052) | `true` |
