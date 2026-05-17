@@ -93,3 +93,28 @@ When a PR is merged into `main`, the workflow `.github/workflows/integration-tes
 2. **Diff fetch:** Downloads the full PR diff via the GitHub CLI.
 3. **Analysis:** Sends the diff, the PR title/body, all existing CI tests (up to a 20 000-byte budget), `go/scripts/test-ci.sh`, and `.github/workflows/integration-tests.yml` to Claude (Anthropic SDK `anthropic==0.97.0`, model `claude-sonnet-4-6`) with a prompt that instructs it to identify uncovered features and generate the necessary test files.
 4. **File writing:** Parses the `<file path="...">...
+
+---
+
+## Registered Integration Tests
+
+The following tests are registered in `go/scripts/test-ci.sh` and run in CI:
+
+| Test name | Description |
+|-----------|-------------|
+| `swift-hello` | Basic Swift deployment (no entitlements) |
+| `swift-network` | Swift with network entitlement |
+| `swift-bluetooth` | Swift with bluetooth entitlement |
+| `swift-resources` | Swift with bundled resources |
+| `python-hello` | Basic Python deployment (no entitlements) |
+| `python-network` | Python with network entitlement (WiFi connectivity) |
+| `python-gpu` | Python with GPU entitlement (CUDA verification) |
+| `python-onnx-gpu` | Python with GPU entitlement (ONNX Runtime CUDA inference) |
+| `python-bluetooth` | Python with bluetooth entitlement |
+| `python-no-network` | Verify network is blocked WITHOUT entitlement |
+| `python-no-bluetooth` | Verify bluetooth is blocked WITHOUT entitlement |
+| `python-no-ptrace` | Verify ptrace is blocked WITHOUT entitlement |
+| `python-no-unshare` | Verify unshare is blocked WITHOUT entitlement |
+| `otel-localhost-only` | OpenTelemetry localhost-only connectivity |
+
+> **Note:** Swift tests run only on the macOS CI job.
