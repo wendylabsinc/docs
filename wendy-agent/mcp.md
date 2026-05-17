@@ -1,11 +1,11 @@
 # MCP (Model Context Protocol)
 
-WendyOS has first-class support for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). The wendy agent can expose tools from both the host system and from running app containers to any MCP-compatible AI assistant (Claude Desktop, Cursor, etc.).
+WendyOS has first-class support for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). The wendy agent can expose tools from both the host system and from running app containers to any MCP-compatible AI assistant (Claude Desktop, Cursor, Windsurf, Codex, etc.).
 
 ## Overview
 
 ```
-AI Assistant (Claude Desktop / Cursor)
+AI Assistant (Claude Desktop / Cursor / Windsurf / Codex)
         │  MCP (stdio)
         ▼
 wendy mcp serve          ← aggregates all tool sources
@@ -22,13 +22,23 @@ wendy mcp serve          ← aggregates all tool sources
 
 ## Setup
 
-### Claude Desktop
+### Automatic (recommended)
 
 ```sh
-wendy mcp setup claude
+wendy mcp setup
 ```
 
-This writes the `wendy mcp serve` command into Claude Desktop's `claude_desktop_config.json` using the absolute path of the current `wendy` binary as returned by `os.Executable()`. Symlinks are not resolved, so the path recorded is the stable symlink (e.g. `/opt/homebrew/bin/wendy`) rather than a versioned Cellar path, which means the configuration continues to work after `brew upgrade wendy` without re-running `mcp setup`.
+`wendy mcp setup` detects installed AI tools and writes the `wendy mcp serve` invocation into each one's configuration automatically. Supported tools and their config paths:
+
+| Tool | Config path |
+|------|-------------|
+| Claude Code | `~/.claude.json` |
+| Claude Desktop | `claude_desktop_config.json` (platform default) |
+| Cursor | `~/.cursor/mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| Codex | `~/.codex/config.toml` (TOML, `[mcp_servers.wendy]`) |
+
+Detection uses the presence of the tool's config directory or its binary on `PATH`. Only detected tools are configured. The binary path is resolved using `os.Executable()` without resolving symlinks, so the stable symlink (e.g. `/opt/homebrew/bin/wendy`) is recorded rather than a versioned path — the configuration remains valid across upgrades.
 
 ### Manual
 
@@ -45,6 +55,14 @@ Add the following to your MCP client's server configuration:
 }
 ```
 
+For Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.wendy]
+command = "wendy"
+args = ["mcp", "serve"]
+```
+
 ## `wendy mcp serve`
 
 Starts the MCP server over stdio. Connects to the default device (or the device specified with `--device`) and registers all available tools.
@@ -55,12 +73,93 @@ If the configured address does not include a port, the default agent port is app
 
 | Tool group | Source |
 |------------|--------|
+| Status tool (`wendy_status`) | Built-in |
+| Device tools | Built-in |
 | Provisioning tools | Built-in |
 | OS tools | Built-in |
 | Cloud tools | Built-in |
 | Container MCP tools | Running containers with `mcp` entitlement (proxied via `StreamMCP`) |
 
+**What gets registered as resources:**
+
+| Resource | URI |
+|----------|-----|
+| Orientation guide | `wendy://guide` |
+
 The `list_cloud_assets` cloud tool caps results at **10 000 devices** to prevent unbounded memory growth. If the backend returns more, the tool returns an error: `cloud returned more than 10000 devices`.
+
+## Built-in tools
+
+### `wendy_status`
+
+Call this first in any AI session. Returns the current connection state and a suggested next step.
+
+**Response fields:**
+
+| Field | Description |
+|-------|-------------|
+| `connected` | `true` if an active device connection exists, `false` otherwise |
+| `device` | Name of the connected device (when `connected` is `true`) |
+| `connection_type` | Transport used: `"direct"` or `"cloud"` (when `connected` is `true`) |
+| `suggested_next_step` | Plain-English hint for what to do next |
+
+### `device_list`
+
+Lists wendy devices from config and known addresses.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `scan` | boolean (optional) | When `true`, runs a live 3-second mDNS scan in addition to returning config-known devices |
+
+All results include a `source` field indicating where the entry came from:
+
+| `source` value | Meaning |
+|----------------|---------|
+| `"config"` | Device is known from the local config file |
+| `"scan"` | Device was discovered by the live mDNS scan |
+
+### `run`
+
+Build and deploy a local project to a device (direct or cloud-enrolled). This is the canonical deploy tool for MCP sessions.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `project_path` | string (required) | Project directory containing `wendy.json` |
+| `device_name` | string | Target device name |
+| `build_type` | string | Build type: `docker`, `swift`, or `python` |
+| `product` | string | Swift Package Manager product to build and run |
+| `debug` | boolean | Enable debug logging |
+| `deploy` | boolean | Create container but do not start it |
+| `detach` | boolean | Start container but do not stream logs (default `true` for MCP) |
+| `timeout_seconds` | number | Maximum runtime in seconds (default 300) |
+
+`run` does not require a prior `device_connect` or `cloud_connect` call — it manages the connection internally. When the target device is not reachable directly and cloud auth entries exist, `run` falls back to the cloud tunnel automatically.
+
+### `cloud_run` (deprecated)
+
+`cloud_run` is a deprecated alias for `run`. Use `run` instead.
+
+## `wendy://guide` resource
+
+A static orientation document registered at server startup. Read it to understand the connection model and common tool workflows:
+
+```
+wendy://guide
+```
+
+The resource is served as `text/plain`.
+
+## `wendy run` cloud fallback
+
+`wendy run` (CLI command) first attempts a direct connection to the target device. If the direct connection fails and cloud auth entries exist, it automatically retries through the Wendy Cloud tunnel. This means `--device <name>` works for both locally reachable and cloud-only enrolled devices without specifying different commands.
+
+## `wendy cloud run` (deprecated)
+
+`wendy cloud run` is a hidden alias that injects cloud context and delegates to `wendy run`. Use `wendy run` directly instead.
 
 ## Container MCP Servers
 
@@ -148,4 +247,4 @@ This mechanism is transparent to the MCP client library (`mcp-go`), which sees a
 
 ## `wendyBinaryPath` resolution
 
-When writing MCP server configuration files (e.g. for Claude Desktop), `wendy mcp setup` resolves the binary path using `os.Executable()` without resolving symlinks. It falls back to a PATH lookup and finally to the literal string `"wendy"` if neither succeeds. This ensures the configuration records the stable symlink path (e.g. `/opt/homebrew/bin/wendy`) rather than a versioned real path, so the configuration remains valid across upgrades.
+When writing MCP server configuration files, `wendy mcp setup` resolves the binary path using `os.Executable()` without resolving symlinks. It falls back to a PATH lookup and finally to the literal string `"wendy"` if neither succeeds. This ensures the configuration records the stable symlink path (e.g. `/opt/homebrew/bin/wendy`) rather than a versioned real path, so the configuration remains valid across upgrades.
