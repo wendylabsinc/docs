@@ -11,6 +11,10 @@ Wendy uses mutual TLS (mTLS) to authenticate both devices and CLI clients agains
 
 The device's mTLS CA pool is built from the `chainPem` field in `provisioning.json`. CLI clients must present a certificate whose chain terminates at that same CA. If `chainPem` is absent or empty, the agent refuses to build a TLS configuration and returns an error indicating that the device may need to be re-provisioned.
 
+## CA key rollover
+
+The trust bundle may contain multiple CA certificates sharing the same subject DN. This is normal during a CA key rollover, where an old CA and a new CA temporarily coexist in the bundle. The agent's ML-DSA client certificate verifier (`verifyMLDSAClientCert`) tries every CA whose subject DN matches the client certificate's issuer DN. Verification succeeds as soon as any matching CA validates the certificate. If all matching CAs fail, the error from the last attempted CA is returned. If no CA in the pool has a matching subject DN, the verifier returns a "client certificate issuer not found in trusted CA pool" error.
+
 ## Local development with pki-core
 
 [pki-core](https://github.com/wendylabsinc/pki-core) is the self-hosted Wendy PKI engine. Run it locally to provision real devices without a cloud deployment.
