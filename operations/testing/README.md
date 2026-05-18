@@ -32,6 +32,7 @@ The following named test cases are registered in the pipeline:
 | `python-no-bluetooth` | ✅ | ✅ | Python app with Bluetooth disabled |
 | `python-no-ptrace` | ✅ | ✅ | Verifies `ptrace` syscall is blocked by the default seccomp profile (WDY-1099) |
 | `python-no-unshare` | ✅ | ✅ | Verifies `unshare` syscall is blocked by the default seccomp profile (WDY-1099) |
+| `python-multiservice` | ✅ | ✅ | Multi-service `wendy.json`: parallel build, dependency-ordered creation, and `--service` filtering |
 | `otel-localhost-only` | ✅ | ✅ | Verifies OTEL receivers bind to 127.0.0.1 only (WDY-1097, WDY-1100) |
 
 Swift tests are excluded from the default Linux suite because Swift container builds require macOS. They can still be run manually on Linux by specifying them via the `INPUT_TESTS` workflow input — the Linux runner skips any `swift-*` test when it appears in `INPUT_TESTS`.
@@ -79,6 +80,16 @@ Added in wendy-agent#603 to provide regression coverage for [WDY-1099](https://g
 Both tests exit `0` on a correct denial and `1` if the syscall unexpectedly succeeds.
 
 See [OCI Entitlements — Seccomp profile](../../wendy-agent/oci/entitlements.md#seccomp-profile) for the full profile spec.
+
+## `python-multiservice` test
+
+Provides integration coverage for parallel multi-service build in `wendy run` (WDY-892). The test fixture is a two-service `wendy.json` project with a `db` service and an `api` service that declares `"dependsOn": ["db"]`.
+
+The test runs three sub-cases:
+
+1. **Full deploy** — all services are built and created via `wendy run --deploy`.
+2. **`--service` filtering** — only `api` (and its dependency `db`) are built and created via `wendy run --deploy --service api`.
+3. **Unknown service error** — `wendy run --deploy --service ghost` must exit non-zero and include the unknown name in its error output.
 
 ## `otel-localhost-only` test
 
