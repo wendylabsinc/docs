@@ -39,6 +39,8 @@ The image is written via `dd` to the raw disk device (`/dev/rdiskN`), bypassing 
 
 ### Linux
 
+Before writing, all mounted partitions on the target disk are unmounted automatically. `lsblk` is used to enumerate every partition (including nested ones), and each mounted partition is unmounted by its mountpoint using `sudo umount`. Partitions with deeper mountpoints are unmounted before shallower ones to avoid `EBUSY` errors. If any partition cannot be unmounted, the error is reported and the write does not proceed.
+
 The image is written via `dd` with `conv=fdatasync` to ensure the device is flushed before the command exits. NVMe drives use a 64 MiB block size and `oflag=direct` to bypass the page cache.
 
 ### Windows
