@@ -7,6 +7,20 @@ Runs your app on a Wendy-enabled device:
 5. [Starts the app](./device/apps/start.md)
 6. [Attaches the logs](./device/logs.md) if needed (when `--detach` is not provided)
 
+## Multi-service projects (`wendy.json` with `services`)
+
+When `wendy.json` contains a `services` map, `wendy run` automatically switches to the multi-service path:
+
+1. All service images are built in parallel (up to 4 concurrent builds). In an interactive terminal a per-service spinner shows build progress; in non-interactive environments plain log lines are printed instead.
+2. Containers are created individually in topological dependency order (services listed in `dependsOn` are created first).
+3. All containers are started and their logs are streamed to stdout/stderr with a `[serviceName]` prefix per line.
+
+Press **Ctrl-C** to stop all services. A 30-second graceful shutdown window is given before the CLI exits.
+
+Use `--service <name>` to build and run only a specific service and its transitive `dependsOn` dependencies instead of the full set.
+
+See [Multi-Service Apps with `wendy.json`](../../../apps/wendy-services.md) for a full walkthrough.
+
 ## Compose projects
 
 If the current directory contains a `docker-compose.yml` (or `compose.yml`) but no `wendy.json`, `wendy run` automatically runs it as a multi-service compose project. Each service is built, pushed, and started on the device in dependency order. See [Multi-Service Apps with Docker Compose](../../../apps/compose.md) for full details.
@@ -46,6 +60,7 @@ On a **Windows host**, `wendy run` returns an actionable error for Swift project
 | `--build-type <type>` | Override build type detection: `docker`, `swift`, `python`, or `compose`. |
 | `--prefix <dir>` | Run from a project directory other than the current working directory. |
 | `--product <name>` | Swift Package Manager product to build and run (Swift projects only). |
+| `--service <name>` | Build and run only the named service and its transitive dependencies (multi-service `wendy.json` projects only). Returns an error if the name does not match any key in the `services` map. |
 | `--user-args <args>` | Extra arguments to pass to the container at runtime. |
 
 ## postStart hooks
