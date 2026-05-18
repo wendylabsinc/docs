@@ -27,7 +27,7 @@ When `wendy-agent` starts it performs the following steps in order:
    - **D-Bus proxy manager** – `xdg-dbus-proxy` sandbox for Bluetooth containers (falls back to unfiltered host D-Bus access when absent).
 8. Connects to containerd (default socket, overrideable with `WENDY_CONTAINERD_ADDR`).
 9. Constructs all gRPC service implementations (see below).
-10. Starts the container monitor (polls containerd every 15 seconds).
+10. Starts the container monitor (polls containerd every 15 seconds; skipped when containerd is unavailable).
 11. Starts background goroutines for container CPU/memory metrics and agent process metrics.
 12. Decides which gRPC server(s) to start based on provisioning state (see [Security model](#security-model)).
 13. Starts the embedded OCI registry (Linux only, best-effort).
@@ -58,7 +58,8 @@ wendy-agent
 └── Internal subsystems
     ├── containerd client       – container creation, snapshots, image import
     ├── OCI entitlements        – GPU, audio, video, Bluetooth, USB, I2C, GPIO, SPI, persist
-    ├── Container monitor       – watches running containers (15 s poll interval)
+    ├── Container monitor       – watches running containers (15 s poll interval); wired into
+    │                             ContainerService so restart policies take effect automatically
     ├── Container log manager   – multiplexes container stdout/stderr to telemetry broadcaster
     ├── Network manager (nmcli) – WiFi scan, connect, disconnect, priorities
     ├── Bluetooth manager (BlueZ) – BLE peripheral advertising, device pairing
@@ -68,6 +69,22 @@ wendy-agent
     ├── CDI (NVIDIA)            – ensures nvidia CDI spec for GPU containers
     └── Config partition        – applies overlay from /etc/wendy-agent
 ```
+
+## Container restart policies
+
+When a container is started or attached with a non-`NO` restart policy, `ContainerService` registers it with the container monitor. The monitor polls containerd every 15 seconds and restarts any registered container that is no longer running, subject to the policy rules below.
+
+| Policy | Restart behaviour |
+|--------|------------------|
+| `UNLESS_STOPPED` | Restarts on any exit unless the container was explicitly stopped via `StopContainer`. |
+| `ON_FAILURE` | Currently behaves identically to `UNLESS_STOPPED`: restarts on any exit (not only non-zero exits) because containerd does not yet provide an exit-code signal to the monitor. `MaxRetries` is still enforced. |
+| `NO` | Never restarted. Clears any existing monitor registration. |
+
+`StopContainer` marks the container as explicitly stopped in the monitor *before* issuing the containerd stop, preventing the monitor from restarting it in the window between the container exiting and the stop call returning. If the stop call fails, the mark is cleared so future automatic restarts are not suppressed.
+
+`StartContainer` and `AttachContainer` clear any prior explicit-stop mark as soon as the container starts successfully, re-enabling automatic restarts.
+
+When `StartContainer` is called without a restart policy, the agent reads the policy persisted as a containerd label during `CreateContainer` and uses that for monitor registration. This ensures containers are correctly re-registered after an agent restart without requiring the client to resupply the policy.
 
 ## Security model
 

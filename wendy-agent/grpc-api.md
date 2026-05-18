@@ -42,9 +42,9 @@ The `RunContainerLayerHeader` message describes a single image layer sent to the
 | Field | Type | Description |
 |-------|------|-------------|
 | `app_name` | `string` | Name of the app to start. |
-| `restart_policy` | `optional RestartPolicy` | Restart policy override applied at start time. When unset the agent uses its configured default. |
+| `restart_policy` | `optional RestartPolicy` | Restart policy applied at start time. When unset, the agent reads the policy persisted as a containerd label during `CreateContainer` and uses that instead. |
 
-When `restart_policy` is provided, the agent updates the container's restart policy label before starting the task.
+When `restart_policy` is provided with a non-`NO` mode, the agent registers the container with the container monitor for automatic restart. When omitted, the persisted label is used for registration so that containers are correctly re-monitored after an agent restart. Explicitly setting `mode=NO` removes any existing monitor registration.
 
 ---
 
@@ -83,7 +83,7 @@ Shared types used by multiple v2 services.
 | `RESTART_POLICY_MODE_UNSPECIFIED` | `0` | Unspecified |
 | `RESTART_POLICY_MODE_UNLESS_STOPPED` | `1` | Restart unless manually stopped |
 | `RESTART_POLICY_MODE_NO` | `2` | Never restart |
-| `RESTART_POLICY_MODE_ON_FAILURE` | `3` | Restart on non-zero exit |
+| `RESTART_POLICY_MODE_ON_FAILURE` | `3` | Restart on non-zero exit. **Note:** currently restarts on any exit (not only non-zero exits) because the monitor has no exit-code signal from containerd. `MaxRetries` is still enforced. |
 
 #### `AppRunningState`
 
@@ -100,7 +100,7 @@ Shared types used by multiple v2 services.
 | Field | Type | Description |
 |-------|------|-------------|
 | `mode` | `RestartPolicyMode` | Restart mode |
-| `on_failure_max_retries` | `int32` | Maximum retries when `ON_FAILURE` mode is set |
+| `on_failure_max_retries` | `int32` | Maximum retries when `ON_FAILURE` mode is set. Negative values are clamped to zero. |
 
 #### `AppContainer`
 
@@ -340,7 +340,17 @@ Manages app container lifecycle, volumes, and resource stats.
 | Field | Type | Description |
 |-------|------|-------------|
 | `app_name` | `string` | Name of the app to start. |
-| `restart_policy` | `optional RestartPolicy` | Restart policy override applied at start time. When unset the agent uses its configured default. |
+| `restart_policy` | `optional RestartPolicy` | Restart policy applied at start time. When unset, the agent reads the policy persisted as a containerd label during `CreateContainer` and uses that instead. Explicitly setting `mode=NO` removes any existing monitor registration. |
+
+After a successful start, the agent clears any prior explicit-stop mark on the container so that automatic restarts are re-enabled.
+
+### `StopContainer` behaviour
+
+`StopContainer` marks the container as explicitly stopped in the monitor before issuing the containerd stop. This prevents the monitor from restarting the container in the window between the container exiting and the stop returning. If the stop call fails, the mark is cleared automatically so future automatic restarts are not suppressed.
+
+### `DeleteContainer` behaviour
+
+`DeleteContainer` marks the container as explicitly stopped and unregisters it from the monitor before issuing the containerd delete. If the delete subsequently fails, the container is left unregistered; the caller should retry deletion.
 
 ### `ContainerStreamResponse` (`oneof response_type`)
 
