@@ -4,6 +4,36 @@ WendyOS build configuration lives in `build/conf/local.conf`. The file is genera
 
 Edit `build/conf/local.conf` after bootstrapping to customise your build. The file is not overwritten by subsequent `bootstrap.sh` runs (except that `WENDYOS_LAYER_TREE` is prepended on every run to keep it current).
 
+`bootstrap.sh` also generates `build/conf/auto.conf` on every run. This file is fully regenerated each time, so re-running `bootstrap.sh` without a flag cleanly disables that flag's effects.
+
+---
+
+## bootstrap.sh Flags
+
+### --debug
+
+Enables debug build flags by writing the following to `build/conf/auto.conf`:
+
+```bitbake
+WENDYOS_DEBUG = "1"
+WENDYOS_DEBUG_UART = "1"
+WENDYOS_SSHD = "1"
+```
+
+Re-run `bootstrap.sh` without `--debug` to disable these flags.
+
+### --history
+
+Enables buildhistory tracking by writing the following to `build/conf/auto.conf`:
+
+```bitbake
+INHERIT += "buildhistory"
+BUILDHISTORY_COMMIT = "1"
+BUILDHISTORY_FEATURES = "image package"
+```
+
+Re-run `bootstrap.sh` without `--history` to disable buildhistory.
+
 ---
 
 ## Core Yocto Variables
@@ -110,6 +140,8 @@ WENDYOS_DEBUG = "1"   # enable debug-tweaks (development builds)
 WENDYOS_DEBUG = "0"   # production image — no empty passwords, no passwordless root SSH (default)
 ```
 
+The default (`"0"`) is set with a weak `??=` assignment in `conf/template/include/local/common.inc`, so it can be overridden by `build/conf/auto.conf` (written by `bootstrap.sh --debug`), `local.conf`, or a board config without the default clobbering those values. BitBake parses `auto.conf` before `local.conf`; both override the `??=` default.
+
 ### WENDYOS_DEBUG_UART
 
 Enable verbose UART debug output during boot.
@@ -118,6 +150,8 @@ Enable verbose UART debug output during boot.
 WENDYOS_DEBUG_UART = "1"   # verbose boot output
 WENDYOS_DEBUG_UART = "0"   # silent (default for production)
 ```
+
+Like `WENDYOS_DEBUG`, the default is a `??=` weak assignment and can be overridden via `auto.conf` (`bootstrap.sh --debug`), `local.conf`, or a board config.
 
 ### WENDYOS_SSHD
 
@@ -128,7 +162,7 @@ WENDYOS_SSHD = "1"   # include openssh-sshd (ssh-server-openssh image feature)
 WENDYOS_SSHD = "0"   # omit sshd from the image (default)
 ```
 
-Set `WENDYOS_SSHD = "1"` in `local.conf` to add SSH access to a build.
+Set `WENDYOS_SSHD = "1"` in `local.conf` to add SSH access to a build, or use `bootstrap.sh --debug` to enable it (along with `WENDYOS_DEBUG` and `WENDYOS_DEBUG_UART`) via `auto.conf`. The default is a `??=` weak assignment so it is not clobbered by `auto.conf`.
 
 ### WENDYOS_PERSIST_JOURNAL_LOGS
 
