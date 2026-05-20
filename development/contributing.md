@@ -23,76 +23,23 @@ The docs-update workflow automatically proposes documentation changes whenever a
 - **Empty-diff guard:** If the diff is empty, the workflow exits early rather than attempting a model call.
 - **Prompt wording:** The system prompt instructs the model to make only minimal, surgical edits to keep docs accurate — updating only content that is directly wrong or missing as a result of the diff, writing in timeless present tense, and never inventing or removing features not present in the diff.
 
-### Security Review Workflow (`.github/workflows/security-review.yml`)
+### VSCode Extension Update Workflow (`.github/workflows/vscode-update.yml`)
 
-A dedicated **AI Security Review** workflow runs on every pull request targeting `main` and posts a structured security and compliance report as a PR comment.
+The vscode-update workflow automatically proposes changes to the `wendylabsinc/wendy-vscode` extension whenever a CLI command file is merged to `main`. It is driven by Claude (Anthropic) and analyses the CLI diff against the current extension source.
 
-#### Trigger
+**Trigger:** Fires on merged pull requests that touch files under `go/internal/cli/commands/**`. PRs labelled `ai-suggestion` are skipped to prevent recursive loops.
 
-```yaml
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main]
-```
+**Key behaviours:**
 
-Concurrent runs for the same PR are cancelled automatically (`cancel-in-progress: true`).
-
-#### What it does
-
-1. **Fetches the PR diff** using the GitHub CLI (`gh pr diff`).
-2. **Invokes Claude** (`claude-sonnet-4-6`, `max_tokens=8096`) with a detailed system prompt covering security and compliance analysis.
-3. **Writes a Markdown report** (`review.md`) to the workspace.
-4. **Posts or updates a PR comment** headed `## AI Security Review`. The comment uses a `<details>`/`<summary>` block: the first non-heading paragraph of the report appears as the collapsed summary, and the full report is shown when expanded. If a previous security review comment already exists on the PR it is edited in place; otherwise a new comment is created.
-
-#### Security analysis scope
-
-The model analyses the diff for:
-
-- Injection vulnerabilities (SQL, command, LDAP, XPath, template, etc.)
-- Authentication and authorisation flaws
-- Sensitive data exposure (secrets, PII, tokens hardcoded or logged)
-- Cryptographic weaknesses
-- Input validation and output encoding issues
-- Security misconfiguration (overly broad permissions, debug flags, unsafe defaults)
-- Insecure dependencies or version pins
-- Race conditions and TOCTOU vulnerabilities
-- Path traversal and SSRF
-- Denial-of-service vectors (unbounded loops, large allocations, missing rate limits)
-
-#### Compliance frameworks checked
-
-| Framework | Controls evaluated |
-|---|---|
-| **SOC 2** | CC6, CC7, CC8, CC9, A1, C1, P-series |
-| **ISO/IEC 27001:2022** | A.8 (technological controls), A.9 (access control), A.12 (logging & monitoring) |
-| **PCI DSS v4.0** | Req 3, 4, 6, 10 — flagged only when the diff touches payment/card data |
-| **GDPR / Privacy** | Lawful basis, PII logging, data-subject rights |
-| **HIPAA** | PHI encryption, access controls — flagged only when the diff touches health data |
-| **NIST SP 800-53 / CSF 2.0** | AC, AU, IA, SC, SI control families |
-
-Each finding is rated **CRITICAL**, **HIGH**, **MEDIUM**, **LOW**, or **INFORMATIONAL** and tagged with the relevant standard(s) (e.g. `[SOC2-CC6] [ISO27001-A.8]`).
-
-#### Report structure
-
-1. One-paragraph executive summary
-2. Findings table: `| Severity | Standards | File | Line(s) | Title |`
-3. Detailed section per finding with description, quoted snippet, remediation advice, and controls violated
-4. Compliance summary listing which frameworks were checked and whether violations were found
-5. Explicit "no findings" statement if the diff looks safe
-
-#### Permissions
-
-The job requests only `contents: read` and `pull-requests: write`. It only runs on PRs from within the same repository (`github.event.pull_request.head.repo.full_name == github.repository`), preventing untrusted forks from triggering the workflow.
-
-#### Prompt injection mitigation
-
-PR title, body, and diff are wrapped in `<untrusted_pr_content>` tags, and the system prompt explicitly instructs the model to ignore any instructions embedded within that content.
-
-#### Required secrets
-
-| Secret | Purpose |
-|---|---|
-| `ANTHROPIC_API_KEY` | Authenticates calls to the Anthropic API |
-
-No additional secrets are required; the `GH_TOKEN` is provided automatically by GitHub Actions.
+- **Relevance-ranked file selection:** TypeScript, JSON, and Markdown files in the `wendy-vscode` repository are scored by keyword overlap between their path/content and the PR title and diff. Files are ranked by relevance descending before a 50,000-character budget is applied.
+- **File-tree context:** A compact file tree (max 3 levels deep) of the extension repository is included in the prompt.
+- **Context window:** `max_tokens` is set to `16,000`.
+- **Diff formatting:** The raw CLI diff is wrapped in a fenced ` ```diff ``` ` code block, truncated at 30,000 characters.
+- **Source repo context:** The name of the source repository and the originating PR number and title are included in the prompt.
+- **Path safety:** The workflow uses `Path.relative_to()` (raising `ValueError` on traversal) and only writes files with `.ts`, `.json`, or `.md` extensions.
+- **Protected files and directories:** `package-lock.json` is never written. Files inside `dist/`, `node_modules/`, or `.git/` are never read or written.
+- **Directory creation:** Output directories are created automatically so the model can introduce new files in new subdirectories.
+- **Created vs. Updated logging:** The workflow prints `Created:` for new files and `Updated:` for existing files.
+- **Empty-diff guard:** If the diff is empty, the workflow exits early rather than attempting a model call.
+- **No-op guard:** If Claude determines the extension does not need updating (no `<description>` block and no `<file>` blocks in the response), no PR is opened.
+- **Output format:** Claude is instructed to output a `<description>` block with a human-readable explanation and `<file path="...">…
