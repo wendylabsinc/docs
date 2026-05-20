@@ -43,6 +43,14 @@ Each key is a service name. Each value is a `ServiceConfig` object:
 - A `context` that is an absolute path.
 - A `context` that contains `..` path components.
 - A `dependsOn` entry that references a service name not present in the `services` map.
+- A service `entitlements` entry with an unknown or missing type.
+- A service `persist` entitlement missing `name` or `path`, or with a non-absolute or `..`-containing `path`.
+- A service `network` entitlement with a `mode` other than `"host"` or `"none"`.
+- A service `i2c` entitlement with a device not in `i2c-N` format.
+- A service `mcp` entitlement with a port outside the range 1–65535.
+- More than one `mcp` entitlement within a single service's `entitlements` array.
+
+`ValidateJSON` additionally warns on deprecated entitlement types and unknown entitlement keys within service-level `entitlements` arrays, using the same rules applied to the top-level `entitlements` field.
 
 ## How `wendy run` handles multi-service projects
 
