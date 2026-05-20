@@ -46,6 +46,16 @@ Both the macOS-target and Linux-target Swift paths shell out to a host Swift too
 
 On a **Windows host**, `wendy run` returns an actionable error for Swift projects that would require the host toolchain. Providing a `Dockerfile` bypasses these restrictions — the build is routed through Docker buildx, which works on all platforms.
 
+### `swiftly` installation
+
+Swift toolchain management requires [`swiftly`](https://swiftlang.github.io/swiftly). When `swiftly` is not found:
+
+- **macOS with Homebrew available (interactive terminal):** `wendy run` prompts you to install `swiftly` via Homebrew (`brew install swiftlang/swiftly/swiftly`). If you confirm, the installation runs immediately and the build continues automatically. If you decline, or if the installation fails, an actionable error is shown with the `brew install` command to run manually.
+- **macOS with Homebrew available (non-interactive environment):** `wendy run` returns an error with the `brew install swiftlang/swiftly/swiftly` command to run manually.
+- **macOS without Homebrew, or non-macOS platforms:** `wendy run` returns an error directing you to the [swiftly installation docs](https://swiftlang.github.io/swiftly).
+
+After a Homebrew-based install, if `swiftly` is not yet on your `PATH`, run `eval "$(brew shellenv)"` or open a new terminal before retrying.
+
 ## Flags
 
 | Flag | Description |
