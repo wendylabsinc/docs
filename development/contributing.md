@@ -43,7 +43,9 @@ Concurrent runs for the same PR are cancelled automatically (`cancel-in-progress
 1. **Fetches the PR diff** using the GitHub CLI (`gh pr diff`).
 2. **Invokes Claude** (`claude-sonnet-4-6`, `max_tokens=8096`) with a detailed system prompt covering security and compliance analysis.
 3. **Writes a Markdown report** (`review.md`) to the workspace.
-4. **Posts or updates a PR comment** headed `## AI Security Review`. The comment uses a `<details>`/`<summary>` block: the first non-heading paragraph of the report appears as the collapsed summary, and the full report is shown when expanded. If a previous security review comment already exists on the PR it is edited in place; otherwise a new comment is created.
+4. **Parses the report for severity findings** — the findings table is scanned for rows with `CRITICAL` or `HIGH` severity. When any are found, `HAS_HIGH_SEVERITY=true` is written to `GITHUB_ENV`.
+5. **Posts or updates a PR comment** headed `## AI Security Review`. The comment uses a `<details>`/`<summary>` block: the first non-heading paragraph of the report appears as the collapsed summary, and the full report is shown when expanded. If a previous security review comment already exists on the PR it is edited in place; otherwise a new comment is created. The comment is always posted, even when the check subsequently fails.
+6. **Blocks merging on high-severity findings** — a final step exits non-zero if `HAS_HIGH_SEVERITY` is `true`, causing the check to fail and preventing the PR from merging until the findings are addressed.
 
 #### Security analysis scope
 
@@ -80,6 +82,10 @@ Each finding is rated **CRITICAL**, **HIGH**, **MEDIUM**, **LOW**, or **INFORMAT
 3. Detailed section per finding with description, quoted snippet, remediation advice, and controls violated
 4. Compliance summary listing which frameworks were checked and whether violations were found
 5. Explicit "no findings" statement if the diff looks safe
+
+#### Severity gate
+
+After the report is posted, the workflow parses the findings table for `CRITICAL` or `HIGH` severity rows. If any are found, the workflow exits non-zero, blocking the PR from merging. `MEDIUM`, `LOW`, and `INFORMATIONAL` findings are reported in the comment but do not fail the check.
 
 #### Permissions
 
