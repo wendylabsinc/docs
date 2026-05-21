@@ -119,6 +119,23 @@ fdsrc fd=0 ! matroskademux ! vp8dec ! queue max-size-buffers=1 leaky=downstream 
 
 VP8 is sent in a WebM container (`webmmux streamable=true`), which `matroskademux` can parse from a pipe.
 
+### GStreamer installation (CLI host)
+
+The CLI requires `gst-launch-1.0` to be installed on the developer's machine for local camera playback. Pass `--stdout` to skip local playback and pipe raw video frames instead.
+
+**macOS:** Install via Homebrew (`brew install gstreamer`). The CLI searches `PATH` first, then common Homebrew prefixes including `/opt/homebrew/bin` (Apple Silicon) and `/usr/local/bin` (Intel).
+
+**Linux:** Install via your distribution's package manager (e.g. `apt install gstreamer1.0-tools`). The CLI searches `PATH` then `/usr/bin`, `/usr/local/bin`, and `/usr/sbin`.
+
+**Windows:** Install via winget (`winget install gstreamer`) or the [GStreamer MSI installer](https://gstreamer.freedesktop.org/download/). The Windows installer does not add GStreamer's `bin` directory to `PATH`; instead it sets `GSTREAMER_1_0_ROOT_*` environment variables. The CLI locates `gst-launch-1.0.exe` using the following sources in order:
+
+1. `PATH` (if the user has manually added the GStreamer `bin` directory).
+2. The `InstallLocation` recorded in the Windows uninstall registry (checked under both `HKLM` and `HKCU`, covering both machine-wide MSI and per-user winget installs).
+3. The `GSTREAMER_1_0_ROOT_MSVC_X86_64`, `GSTREAMER_1_0_ROOT_MINGW_X86_64`, `GSTREAMER_1_0_ROOT_X86_64`, `GSTREAMER_1_0_ROOT_MSVC_X86`, and `GSTREAMER_1_0_ROOT_MINGW_X86` environment variables.
+4. Default install roots: `C:\gstreamer\1.0\...`, `%LOCALAPPDATA%\Programs\gstreamer\1.0\...`, and `%ProgramFiles%\GStreamer\1.0\...`.
+
+If `gst-launch-1.0` cannot be found by any of these means, the CLI prints an error directing you to install GStreamer or use `--stdout`.
+
 ## App Configuration
 
 ```json
