@@ -4,14 +4,13 @@ This page mirrors the current public roadmap language for engineering and docs r
 
 ## Imminent
 
-- **Jetson AGX Orin support**: WendyOS support for production robotics, vision, and physical AI workloads is imminent.
+- **Jetson AGX Orin support** and **Jetson AGX Thor support**
 - **Cloud fleet management**: fleet deploy, manage, and debug workflows are being worked on and are imminent.
+- **MLX Swift support**: MLX Swift integration for unified-memory AI workloads.
 
 ## In Progress
 
 - **Wendy for Mac**: headless Mac mini and Mac Studio support using a macOS-specific `wendy-agent` workflow.
-- **Jetson AGX Thor support**: WendyOS support for AGX Thor-class physical AI workloads.
-- **MLX Swift support**: MLX Swift integration for unified-memory AI workloads.
 
 ## Shipped
 
