@@ -106,16 +106,16 @@ A `dev` version is embedded when `VERSION` is not set.
 
 ### CLI
 
-Add a shell alias so you can iterate on CLI changes without touching your installed `wendy`:
+Add a shell function so you can iterate on CLI changes without touching your installed `wendy`:
 
 ```sh
 # ~/.zshrc or ~/.bashrc
 wendy-dev() {
-  (cd /path/to/wendy-agent/go && go run ./cmd/wendy "$@")
+  (cd /path/to/WendyOS/go && go run ./cmd/wendy "$@")
 }
 ```
 
-Use it wherever you'd use `wendy`:
+Use it wherever you would use `wendy`:
 
 ```sh
 wendy-dev discover --json
@@ -126,7 +126,7 @@ wendy-dev run
 
 ```sh
 wendy-agent-dev() {
-  (cd /path/to/wendy-agent/go && go run ./cmd/wendy-agent "$@")
+  (cd /path/to/WendyOS/go && go run ./cmd/wendy-agent "$@")
 }
 ```
 
