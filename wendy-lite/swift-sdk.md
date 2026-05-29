@@ -75,14 +75,14 @@ Internally:
 
 ### TimerHub
 
-`TimerHub` maintains a sorted array of `Waiter` entries (deadline + checked continuation). When a sleep is requested:
+`TimerHub` is a `Sendable` class that maintains a sorted array of `Waiter` entries (deadline + checked continuation) protected by an internal `_LockedBox`. When a sleep is requested:
 
-1. A `Waiter` is inserted in deadline order.
-2. `rescheduleForEarliestDeadline()` calls `Timer.setTimeout` on the host for the earliest pending deadline (cancelling any previously scheduled timer first).
-3. When the host fires the timer, `timerFired()` moves all expired waiters to `readyWaiters`.
-4. `drainReady()` (called from `pumpAsyncRuntimeOnce`) resumes those continuations.
+1. A `Waiter` is inserted in deadline order under the lock.
+2. `rescheduleForEarliestDeadlineLocked()` calls `Timer.setTimeout` on the host for the earliest pending deadline (cancelling any previously scheduled timer first).
+3. When the host fires the timer, `timerFired()` moves all expired waiters to `readyWaiters` under the lock.
+4. `drainReady()` (called from `pumpAsyncRuntimeOnce`) collects ready waiters under the lock and resumes their continuations outside the lock.
 
-Cancellation is handled via `withTaskCancellationHandler`: a `SleepRegistration` flag is shared between the operation and the cancel handler so that cancellation arriving before or after the continuation is registered is always handled correctly.
+Cancellation is handled via `withTaskCancellationHandler`: a `SleepRegistration` object (itself `Sendable`, backed by `_LockedBox`) is shared between the operation and the cancel handler so that cancellation arriving before or after the continuation is registered is always handled correctly.
 
 **Edge case**: If `Timer.setTimeout` returns a negative ID, the host could not allocate an ESP timer (no free slots or `esp_timer_create`/`esp_timer_start` failure). Pending sleepers will stall in that case — no recovery is attempted.
 
@@ -99,12 +99,22 @@ CallbackDispatch.register(42) { arg0, arg1, arg2 in
 
 The exported C function `wendy_handle_callback` (which the host calls to dispatch events into the WASM guest) routes by handler ID through the registered table.
 
+Handler registration and lookup are protected by an internal `_LockedBox`. When dispatching, the matching handler is retrieved under the lock and then invoked outside the lock, so handlers can freely call back into `CallbackDispatch` without re-entrant lock concerns.
+
 Handler IDs are application-defined integers. Timer callbacks internally use ID `1` (a private constant in `WendyClock.swift`). Your application must use IDs that do not collide with internal use.
+
+## Internal Locking: `_LockedBox`
+
+`Internal.swift` provides `_LockedBox<T>`, a lock-protected carrier for mutable `Sendable` state (the same shape as NIO's `NIOLockedValueBox`). It is implemented as an `Atomic<Bool>` spinlock.
+
+On WASM's single-threaded cooperative executor the spin loop never iterates — there is no other thread to contend with. The lock is logically a no-op there, but is written as a real lock so that the `@unchecked Sendable` conformance is grounded in lock discipline rather than executor assumptions.
+
+> **Future**: `_LockedBox` is intended to be replaced by `Synchronization.Mutex` once Swift 6.4 ships an Embedded-compatible `Mutex`. All WendyLite use sites hold `Sendable` state and can migrate directly.
 
 ## SwiftPM Package Structure
 
 ```
-Package.swift
+Package.swift  (swift-tools-version: 6.3)
   targets:
     CWendyLite   (C target) — wendy.h + shim.c
     WendyLite    (Swift target, depends on CWendyLite)
@@ -132,4 +142,3 @@ App packages must pass specific linker flags:
 - **No `Task.sleep`** — use `WendyClock.sleep`.
 - **Single-threaded executor** — concurrent tasks interleave cooperatively; there is no parallelism.
 - **Timer slots are finite** — the ESP timer subsystem has a limited pool; each outstanding `WendyClock.sleep` occupies one slot for the minimum-deadline timer.
-- **nonisolated(unsafe)** — `CallbackDispatch` and `TimerState` use `nonisolated(unsafe)` storage because the cooperative single-threaded WASM executor guarantees no true concurrent access.
