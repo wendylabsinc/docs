@@ -47,13 +47,45 @@ struct MyApp: WendyLiteApp {
 
 ## Async Runtime Bootstrap
 
-Embedded Swift on WASM runs a cooperative single-threaded executor. `bootstrapAsyncRuntime()` (in `WendyLiteApp.swift`) sets it up:
+Embedded Swift on WASM runs a cooperative single-threaded executor. `bootstrapAsyncRuntime()` (in `WendyLiteApp.swift`) sets it up. There are two execution paths depending on whether the app has opted into `WendyExecutorFactory`.
+
+### Default path (background yield pump)
+
+When the app uses the default Swift executor:
 
 1. Registers the timer callback handler ID with `CallbackDispatch` (handler ID `1`).
 2. Drains any events that arrived before user code starts (`pumpAsyncRuntimeOnce(timeoutMs: 0)`).
 3. Launches a background `Task` that calls `pumpAsyncRuntimeOnce(timeoutMs: 250)` in a loop, yielding between iterations so Swift tasks can run.
 
 `pumpAsyncRuntimeOnce` calls `System.waitForEvent(timeoutMs:)` (which maps to `sys_wait_for_event` on the host and blocks until a callback fires or the timeout elapses), then calls `TimerState.shared.drainReady()` to resume any sleeping tasks whose deadlines have passed.
+
+Because the yield pump runs as a `.background`-priority task, task priority inversion can occur: the pump may hold the executor for up to 250 ms even when higher-priority user tasks are runnable, which manifests as elevated I/O latency in interactive networking apps.
+
+### WendyExecutorFactory path (recommended)
+
+When the app opts into `WendyExecutorFactory`, `bootstrapAsyncRuntime()` detects that `Task.defaultExecutor` is a `WendyMainExecutor` instance and returns immediately — the executor manages timer callback registration and host-event pumping itself.
+
+`WendyMainExecutor` is a priority-ordered cooperative executor backed by a max-heap run queue. Its run loop:
+
+1. Snapshots the pending job queue and drains the snapshot in priority order. Jobs enqueued during the drain (continuation resumptions, actor hops, new `Task`s) accumulate in the live queue and become the next iteration's batch. This ensures low-priority work is never starved under sustained high-priority load.
+2. If new work arrived during the drain, loops back immediately to process the next batch with no idle wait.
+3. When the queue is genuinely empty, calls `System.waitForEvent(timeoutMs: 250)` to block until the host posts a callback (or the timeout elapses), then calls `TimerState.shared.drainReady()`. The 250 ms cap ensures the live-reload "stop the WASM" handshake is never delayed arbitrarily long.
+
+Because host-event polling only happens when no Swift task is runnable, a chain of Swift continuations completes without paying a host-yield per `await`. This is why apps using `WendyExecutorFactory` see substantially lower I/O latency than those using the default executor.
+
+#### Opting in
+
+Add the following two lines to your app's entry-point file:
+
+```swift
+@_spi(ExperimentalCustomExecutors)
+import WendyLite
+
+// Opt into the executor optimized for Wendy Lite
+typealias DefaultExecutorFactory = WendyExecutorFactory
+```
+
+The `@_spi(ExperimentalCustomExecutors)` import and `DefaultExecutorFactory` typealias install `WendyMainExecutor` as both the main executor and the default task executor. This relies on an unstable Swift SPI (`@_spi(ExperimentalCustomExecutors)`) that is expected to stabilise in a future Swift release.
 
 ### Why not Task.sleep?
 
@@ -80,7 +112,7 @@ Internally:
 1. A `Waiter` is inserted in deadline order.
 2. `rescheduleForEarliestDeadline()` calls `Timer.setTimeout` on the host for the earliest pending deadline (cancelling any previously scheduled timer first).
 3. When the host fires the timer, `timerFired()` moves all expired waiters to `readyWaiters`.
-4. `drainReady()` (called from `pumpAsyncRuntimeOnce`) resumes those continuations.
+4. `drainReady()` (called from `pumpAsyncRuntimeOnce` or from `WendyMainExecutor`'s idle branch) resumes those continuations.
 
 Cancellation is handled via `withTaskCancellationHandler`: a `SleepRegistration` flag is shared between the operation and the cancel handler so that cancellation arriving before or after the continuation is registered is always handled correctly.
 
@@ -133,3 +165,4 @@ App packages must pass specific linker flags:
 - **Single-threaded executor** — concurrent tasks interleave cooperatively; there is no parallelism.
 - **Timer slots are finite** — the ESP timer subsystem has a limited pool; each outstanding `WendyClock.sleep` occupies one slot for the minimum-deadline timer.
 - **nonisolated(unsafe)** — `CallbackDispatch` and `TimerState` use `nonisolated(unsafe)` storage because the cooperative single-threaded WASM executor guarantees no true concurrent access.
+- **`WendyExecutorFactory` uses unstable Swift SPI** — `@_spi(ExperimentalCustomExecutors)` is expected to stabilise in a future Swift release; track [swift-evolution#2654](https://github.com/swiftlang/swift-evolution/pull/2654) for progress.
