@@ -33,7 +33,7 @@ The CLI scans for a connected ESP32 by looking for the Espressif USB serial devi
 
 | Platform | Where it looks | Expected path |
 |----------|---------------|---------------|
-| macOS | `/dev/cu.usbmodem*` (most recently connected) | `/dev/cu.usbmodem*` |
+| macOS | `IOKit` device list, filtered by VID/PID | `/dev/cu.usbmodem*` |
 | Linux | `/sys/class/tty/ttyACM*` matching VID/PID via sysfs | `/dev/ttyACM0` (typical) |
 | Windows | `Win32_PnPEntity` via PowerShell, filtered by VID/PID and `Ports` class | `COMN` (e.g. `COM7`) |
 
@@ -60,26 +60,29 @@ The downloaded `.bin` is a merged firmware image (same format as the CI artifact
 
 The CLI implements the ESP32 ROM bootloader protocol directly over the USB serial port — no `esptool` dependency required.
 
-**Bootloader entry sequence** (DTR/RTS toggle):
+**Bootloader entry sequence**
 
-```
-Assert RTS  (EN pin low  — hold in reset)
-Assert DTR  (IO0 pin low — select download mode)
-Release RTS (EN pin high — release reset, boots into download mode)
-Release DTR
-```
+Historically, many ESP boards were equipped with a USB-to-serial chip, and the DTR and RTS signals were used to drive the reset and GPIO0 pins. This allowed the host to reset the chip and put it into download mode. Today, we use the ESP USB port and the ESP directly appears as an ACM device. We still use virtual DTR and RTS, but with a slightly different sequence.
+
+Documentation can be found [here](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/advanced-topics/serial-protocol.html#32-bit-readwrite).
 
 **Flash sequence:**
 
 | Step | Command | Notes |
 |------|---------|-------|
 | 1 | Sync (`0x08`) | Sends 36-byte sync frame; retries up to 10×; 3 s timeout per attempt |
-| 2 | ChangeBaud (`0x0F`) | Negotiates 921600 baud (up from 115200); drains serial before switching |
-| 3 | SPI Attach (`0x0D`) | Attaches internal SPI flash with default config |
-| 4 | SPI Set Params (`0x0B`) | Declares 4 MB flash; 64 KB block, 4 KB sector, 256-byte page |
-| 5 | Flash Begin (`0x02`) | Erases the target region (up to 30 s timeout for large erases) |
-| 6 | Flash Data (`0x03`) | Sends firmware in 16 KiB blocks; each block XOR-checksummed (seed `0xEF`), padded with `0xFF` |
-| 7 | Flash End (`0x04`) | Signals completion; `reboot=true` resets the device |
+| 2 | ChangeBaud (`0x0F`) | Negotiates 921600 baud (up from 115200) |
+| 3 | GetSecurityInfo (`0x14`) | Reads chip security info (response currently ignored) |
+| 4 | Chip detect | Series of `ReadReg`/`WriteReg` calls for chip identification and RTC/JTAG power-domain init |
+| 5 | SPI Attach (`0x0D`) | Attaches internal SPI flash |
+| 6 | Init flash chip | Issues JEDEC RDID (`0x9F`), RSTEN (`0x66`), and RST (`0x99`) via SPI register writes; returns the flash JEDEC ID |
+| 7 | SPI Set Params (`0x0B`) | Flash size derived automatically from the JEDEC capacity byte (`1 << capacity`); defaults to 4 MB if the capacity byte is 0 |
+| 8 | Pre-flash eFuse checks | `ReadReg` calls on eFuse and chip-ID registers (required by ROM init sequence) |
+| 9 | Flash Begin (`0x02`) | Erases the target region (up to 30 s timeout); sends a 20-byte payload (extra 4-byte encryption flag = 0) |
+| 10 | Flash Data (`0x03`) | Sends firmware in **4 KiB** blocks; each block XOR-checksummed (seed `0xEF`), padded with `0xFF` |
+| 11 | USB-JTAG reset | Issues the USB-JTAG DTR/RTS sequence with `enterBootloader=false` to reboot the device normally |
+
+When put in download mode via USB, the chip has a watchdog that resets it after 9 seconds. Some steps in the flash sequence may look useless (and some genuinely are), but others are required to prevent the watchdog from triggering.
 
 All messages are SLIP-framed (`0xC0` delimiters, `0xDB` escape byte). The CLI drains stale frames between retries and skips responses whose command echo doesn't match the sent opcode.
 
