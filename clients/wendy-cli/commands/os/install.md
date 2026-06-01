@@ -62,7 +62,9 @@ The CLI implements the ESP32 ROM bootloader protocol directly over the USB seria
 
 **Bootloader entry sequence**
 
-Historically, many ESP boards were equipped with a USB-to-serial chip, and the DTR and RTS signals were used to drive the reset and GPIO0 pins. This allowed the host to reset the chip and put it into download mode. Today, we use the ESP USB port and the ESP directly appears as an ACM device. We still use virtual DTR and RTS, but with a slightly different sequence.
+Historically, many ESP boards were equipped with a USB-to-serial chip, and the DTR and RTS signals were used to drive the ESP's reset and GPIO0 pins. This allowed the host to reset the ESP and put it into download mode. Today, we use the ESP's built-in USB port, so the chip appears directly as an ACM device. We still use virtual DTR and RTS, but with a slightly different sequence.
+
+This communication scheme is called `USB-JTAG` because it combines a CDC-ACM serial interface and a JTAG debug interface over a single USB connection.
 
 Documentation can be found [here](https://docs.espressif.com/projects/esptool/en/latest/esp32c6/advanced-topics/serial-protocol.html#32-bit-readwrite).
 
