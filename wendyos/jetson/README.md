@@ -12,6 +12,47 @@ WendyOS supports the following NVIDIA Jetson targets:
 
 ---
 
+## Ribbon cameras (CSI)
+
+WendyOS applies NVIDIA camera Device Tree overlays at boot for Orin boards so that the kernel IMX drivers probe correctly. The overlays are supplied by `nvidia-kernel-oot` and installed into `/boot/` by `l4t-launcher-extlinux`. L4TLauncher reads the resulting `OVERLAYS` line in `extlinux.conf` and applies the overlays during boot.
+
+### Default overlay assignments
+
+| Board(s) | Default overlay | Sensors |
+|---|---|---|
+| Jetson Orin Nano DevKit (SD and NVMe) | `tegra234-p3767-camera-p3768-imx219-imx477.dtbo` | IMX219 in CAM0, IMX477 in CAM1 |
+| Jetson AGX Orin DevKit (eMMC and NVMe) | `tegra234-p3737-camera-dual-imx274-overlay.dtbo` | Dual IMX274 |
+
+The Orin Nano default assumes the Raspberry Pi-ecosystem ribbon cameras (IMX219 + IMX477) on the P3768 dual-CSI carrier. If your physical wiring has the sensors swapped, override in `local.conf`:
+
+```bitbake
+UBOOT_EXTLINUX_FDTOVERLAYS:jetson-orin-nano-devkit = "tegra234-p3767-camera-p3768-imx477-A.dtbo"
+```
+
+The AGX Orin default targets the NVIDIA-reference dual-IMX274 module. If no camera is attached the overlay fails to probe without causing a boot regression. Override in `local.conf` for other sensor modules.
+
+Camera overlays are not set for AGX Thor (tegra264 / JP7) — that target is deferred.
+
+### Verifying camera bring-up
+
+After flashing, confirm the overlays are active:
+
+```sh
+# DT nodes should appear
+find /proc/device-tree -iname 'imx*'
+
+# Driver probe messages
+dmesg | grep -E 'imx477|imx219|nv_imx|tegra-capture-vi'
+
+# Video and sub-device nodes
+ls /dev/video* /dev/v4l-subdev*
+
+# WendyOS camera list
+wendy device camera list
+```
+
+---
+
 ## AGX Thor (tegra264)
 
 The AGX Thor target uses the **wrynose** Yocto series. It is built from a separate layer tree cloned into `repos/wrynose/` alongside the scarthgap tree used by Orin boards.
