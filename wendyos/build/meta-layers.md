@@ -24,8 +24,10 @@ Layers are assembled per board by `bblayers.conf` fragments under `conf/template
 | `meta-openembedded/meta-python` | same | `meta-python` | Python packages |
 | `meta-virtualization` | `git.yoctoproject.org/meta-virtualization` | `virtualization-layer` | containerd, runc, nerdctl |
 | `meta-raspberrypi` | `github.com/agherzan/meta-raspberrypi` | `raspberrypi` | RPi BSP (RPi builds only) |
+| `meta-mender/meta-mender-core` | Mender project | `mender` | Mender OTA core (Orin tegra234 and RPi builds) |
+| `meta-mender-community/meta-mender-raspberrypi` | Mender community | `mender-raspberrypi` | Mender U-Boot integration for RPi (RPi builds only) |
+| `meta-lts-mixins` | Yocto project | `lts-mixins` | Backported U-Boot 2025.04 for RPi (RPi builds only) |
 | `meta-tegra` | `github.com/OE4T/meta-tegra` | `tegra` | NVIDIA Jetson BSP (Tegra builds only) |
-| `meta-mender` | Mender project | `mender` | OTA update client (Orin tegra234 builds only) |
 | `wendyos` (the repo itself) | local | `wendyos` | WendyOS distro and images |
 
 All layer paths inside `bblayers.conf` are expressed as `${TOPDIR}/../repos/${WENDYOS_LAYER_TREE}/<layer>`. `bitbake` is sourced via `oe-init-build-env` from `repos/${WENDYOS_LAYER_TREE}/openembedded-core/` and is not added to `BBLAYERS` directly.
@@ -110,6 +112,26 @@ Raspberry Pi BSP layer. Provides:
 - BCM wireless and Bluetooth firmware packages
 - RPi-specific device tree overlays and config.txt management
 
+### meta-lts-mixins (RPi builds only)
+
+Supplies a backported U-Boot 2025.04 recipe (`u-boot_2025.04.bb`) that wins over the poky-scarthgap bundled `u-boot_2024.01.bb` by version selection. This is required for RPi builds for two reasons:
+
+- BCM2712 (RPi5) is not supported by the poky `u-boot_2024.01.bb`.
+- `meta-mender-raspberrypi`'s U-Boot patches are authored against 2025.04 defconfigs and fail to apply on 2024.01.
+
+`PREFERRED_VERSION_u-boot` and `PREFERRED_VERSION_u-boot-tools` are pinned to `"2025.04%"` in `conf/template/include/local/rpi.inc` to ensure stable version selection.
+
+### meta-mender / meta-mender-community (wendyos repo)
+
+Adds Mender OTA update support:
+
+- `meta-mender/meta-mender-core` — the Mender client daemon, A/B root filesystem partition scheme, and Mender artifact creation at image build time
+- `meta-mender-community/meta-mender-raspberrypi` — U-Boot environment integration and RPi-specific Mender hooks (A/B slot switching via U-Boot variables, firmware update state scripts)
+
+`MENDER_FEATURES_ENABLE` activates Mender via the `mender-full` class.
+
+Mender is gated on `WENDYOS_MENDER`. It is enabled by default for Orin (tegra234) and individually by each RPi machine conf. QEMU and Thor (tegra264) builds skip the `mender.inc` include fragment. Set `WENDYOS_MENDER = "1"` in `local.conf` to opt in on any target.
+
 ### meta-tegra (wendyos repo only)
 
 NVIDIA Jetson BSP layer (OE4T project). Provides:
@@ -120,17 +142,6 @@ NVIDIA Jetson BSP layer (OE4T project). Provides:
 - NVIDIA Container Toolkit support
 
 The common meta-tegra paths (meta-tegra, meta-tegra-community, meta-tegra-extensions) are shared between Orin and Thor via `conf/template/include/bblayers/tegra-thor.inc`. The Orin (`tegra.inc`) build layers the Mender stack on top of that shared base; the Thor build uses `tegra-thor.inc` directly (no Mender in Phase 1).
-
-### meta-mender (wendyos repo, Orin tegra234 targets only)
-
-Adds Mender OTA update support:
-
-- `mender` — the Mender client daemon
-- A/B root filesystem partition scheme
-- Mender artifact creation at image build time
-- `MENDER_FEATURES_ENABLE` activates Mender via `mender-full` class
-
-Mender is gated on `WENDYOS_MENDER`. It is enabled by default only for Orin (tegra234). RPi, QEMU, and Thor (tegra264) builds skip the `mender.inc` include fragment. Set `WENDYOS_MENDER = "1"` in `local.conf` to opt in on any target.
 
 ### WendyOS layer (meta-wendyos / meta-wendyos-rpi / meta-wendyos-virtual)
 

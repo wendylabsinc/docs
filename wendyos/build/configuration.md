@@ -84,12 +84,13 @@ Controls the output image formats. Set per machine in `conf/machine/<machine>.co
 
 | Format | Used by | Notes |
 |---|---|---|
-| `wic` | RPi, QEMU, VM | Raw WIC disk image |
-| `wic.bmap` | RPi | Block map for bmaptool — enables sparse flashing |
+| `wic` | QEMU, VM, RPi (fallback) | Raw WIC disk image |
+| `wic.bmap` | RPi (non-Mender) | Block map for bmaptool — enables sparse flashing |
 | `wic.bz2` | RPi (standalone layer) | Compressed WIC image |
 | `wic.qcow2` | VM | For UTM / Lima / QEMU on macOS |
 | `wic.vmdk` | VM | For VMware Fusion |
-| `ext4` | All | Raw root filesystem (useful for debugging) |
+| `ext4` | All Mender-enabled RPi, Jetson | Raw root filesystem; required by Mender's `mender-image-sd` for A/B slot layout |
+| `sdimg` | Mender-enabled RPi | Mender A/B SD card image (primary flash target for RPi) |
 | `tegraflash-tar` | Jetson AGX Thor (L4T 38.x) | Complete NVIDIA flash package (compressed tar) |
 | `tegraflash` | Jetson (L4T 36.x and earlier) | Complete NVIDIA flash package |
 | `mender` | Jetson Orin | Mender OTA artifact |
@@ -125,11 +126,11 @@ These variables are defined in the distro conf (`conf/distro/wendyos.conf`) with
 Master switch for the Mender OTA stack and everything that depends on the `/data` partition Mender provides (`mender-esp`, `systemd-mount-containerd`, `swapfile-setup`, `wendyos-etc-binds`, `wendyos-user-data-setup`, etc.).
 
 ```bitbake
-WENDYOS_MENDER = "1"   # enable Mender stack and /data partition (default for Orin tegra234)
-WENDYOS_MENDER = "0"   # disable Mender (default for QEMU, RPi, and Thor tegra264)
+WENDYOS_MENDER = "1"   # enable Mender stack and /data partition
+WENDYOS_MENDER = "0"   # disable Mender (default for QEMU and Thor tegra264)
 ```
 
-The smart default enables Mender for all Tegra machines except tegra264 (Thor), and disables it for `qemuall` and `rpi`. Override per-machine or in `local.conf` to opt in or out independently of the SoC.
+The distro-level default enables Mender for all Tegra machines except tegra264 (Thor), and disables it for `qemuall` and the `rpi` group. Each RPi machine conf (`raspberrypi3-64-wendyos`, `raspberrypi4-64-wendyos`, `raspberrypi5-wendyos`, `raspberrypi5-nvme-wendyos`) sets `WENDYOS_MENDER = "1"` individually. Override in `local.conf` to opt in or out independently of the SoC.
 
 ### WENDYOS_DEBUG
 
@@ -173,7 +174,7 @@ WENDYOS_PERSIST_JOURNAL_LOGS = "1"   # logs survive reboots
 WENDYOS_PERSIST_JOURNAL_LOGS = "0"   # volatile logs in tmpfs
 ```
 
-The default tracks `WENDYOS_MENDER`: when Mender provides a `/data` partition, logs are persisted there; when there is no `/data` partition (QEMU, RPi, Thor Phase 1) logs are volatile. Override per-machine or in `local.conf` to decouple this from the Mender setting.
+The default tracks `WENDYOS_MENDER`: when Mender provides a `/data` partition, logs are persisted there; when there is no `/data` partition (QEMU, Thor Phase 1, or RPi machines that have not opted into Mender) logs are volatile. Override per-machine or in `local.conf` to decouple this from the Mender setting.
 
 The mechanism used to apply this setting differs by oe-core series: scarthgap uses `VOLATILE_LOG_DIR`; whinlatter and later use `FILESYSTEM_PERMS_TABLES` selection. WendyOS handles this automatically — use `WENDYOS_PERSIST_JOURNAL_LOGS` and the correct backend is selected for the active series.
 
@@ -182,11 +183,20 @@ The mechanism used to apply this setting differs by oe-core series: scarthgap us
 Enable the USB gadget composite device (NCM network + ACM serial) on the `usb0` interface.
 
 ```bitbake
-WENDYOS_USB_GADGET = "1"   # enabled (default for Jetson and RPi5)
-WENDYOS_USB_GADGET = "0"   # disabled
+WENDYOS_USB_GADGET = "1"   # enabled (default for Jetson, RPi4, and RPi5)
+WENDYOS_USB_GADGET = "0"   # disabled (default for RPi3)
 ```
 
-When enabled, the machine conf sets `ENABLE_DWC2_PERIPHERAL = "1"` (RPi) or the appropriate Tegra USB gadget configuration.
+When enabled, the machine conf sets `ENABLE_DWC2_PERIPHERAL = "1"` (RPi) or the appropriate Tegra USB gadget configuration. RPi3 B/B+ cannot use USB gadget mode because the LAN9514 hub blocks the dwc2 peripheral controller; RPi3 A+ can in principle but requires non-standard cabling, so the default is off.
+
+### WENDYOS_RPI_UBOOT
+
+Enable U-Boot as the bootloader on RPi machines. U-Boot is required for Mender A/B OTA updates.
+
+```bitbake
+WENDYOS_RPI_UBOOT = "1"   # use U-Boot (default for all RPi machines; required for Mender)
+WENDYOS_RPI_UBOOT = "0"   # boot directly from firmware (disables Mender OTA)
+```
 
 ### WENDYOS_USB_NET_MODE
 
@@ -268,13 +278,17 @@ These are standard meta-raspberrypi variables used in the WendyOS machine config
 | `ENABLE_UART` | `1` | Enable UART serial console |
 | `ENABLE_I2C` | `1` | Enable I2C interface |
 | `ENABLE_SPI_BUS` | `1` | Enable SPI interface |
-| `ENABLE_DWC2_PERIPHERAL` | `1` | Enable USB gadget (dwc2 peripheral mode) |
+| `ENABLE_DWC2_PERIPHERAL` | `1` (RPi4, RPi5) / `0` (RPi3) | Enable USB gadget (dwc2 peripheral mode) |
 | `GPU_MEM` | `16` | GPU memory split in MB (headless) |
 | `DISABLE_VC4GRAPHICS` | `1` (RPi4), `0` (RPi5) | Disable/enable VC4 GPU driver |
-| `RPI_USE_U_BOOT` | `1` (RPi4), `0` (RPi5) | Use U-Boot bootloader |
+| `RPI_USE_U_BOOT` | `1` | Use U-Boot bootloader (required for Mender; set via `WENDYOS_RPI_UBOOT`) |
 | `RPI_EXTRA_CONFIG` | see machine conf | Extra lines appended to `config.txt` |
-| `WKS_FILE` | `wendyos-rpi.wks` | WIC kickstart file for partition layout |
+| `WKS_FILE` | see machine conf | WIC kickstart file for partition layout (used when building without Mender) |
 | `LICENSE_FLAGS_ACCEPTED` | `"synaptics-killswitch"` | Accept RPi firmware license |
+| `MENDER_STORAGE_DEVICE` | `/dev/mmcblk0` | Block device Mender manages |
+| `MENDER_STORAGE_TOTAL_SIZE_MB` | `7400` | Total Mender storage budget in MiB |
+| `MENDER_BOOT_PART_SIZE_MB` | `100` | Mender boot partition size in MiB |
+| `MENDER_DATA_PART_SIZE_MB` | `256` | Mender data partition size in MiB |
 
 ### EDGEOS_DEBUG / EDGEOS_PERSIST_JOURNAL_LOGS (standalone RPi and VM layers)
 
@@ -330,13 +344,18 @@ IMAGE_ROOTFS_SIZE ?= "8192"   # 8 MB minimum (expanded by content)
 IMAGE_ROOTFS_EXTRA_SPACE:append = "${@bb.utils.contains("DISTRO_FEATURES", "systemd", " + 4096", "", d)}"
 ```
 
-### RPi WIC Partition Layout (`wendyos-rpi.wks`)
+### RPi Mender A/B Partition Layout (sdimg)
 
-| Partition | Mount | Size | Filesystem |
+All WendyOS RPi machines produce a Mender `.sdimg` with an A/B layout on `/dev/mmcblk0` (or `/dev/nvme0n1` for the NVMe variant):
+
+| Partition | Role | Size | FS |
 |---|---|---|---|
-| 1 | `/boot` | 256 MB | FAT32 (MBR) |
-| 2 | `/` | 4 GB | ext4 |
-| 3 | `/data` | 2 GB | ext4 (`noatime`) |
+| 1 | Boot (U-Boot + firmware) | 100 MB | FAT32 |
+| 2 | Root A (active) | derived from total | ext4 |
+| 3 | Root B (inactive) | derived from total | ext4 |
+| 4 | Data (`/data`) | 256 MB | ext4 |
+
+Total storage budget: 7400 MiB (SD), 32000 MiB (RPi5 NVMe).
 
 ### VM WIC Partition Layout (`wendyos-vm.wks`)
 

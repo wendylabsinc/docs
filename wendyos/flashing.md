@@ -1,48 +1,48 @@
 # Flashing WendyOS
 
-The `wendy os install` command writes a WendyOS image to a drive (SD card, USB, NVMe enclosure, etc.).
+WendyOS images are flashed to external storage (SD card, NVMe, or eMMC) using `make flash-to-external`.
 
-## Usage
+## Supported targets
+
+| Target | Image format | Device name examples |
+|---|---|---|
+| Jetson (Orin, Thor) | tegraflash tar | — (uses tegraflash tooling) |
+| Raspberry Pi (SD) | Mender `.sdimg` or `.wic` | `mmcblk0`, `sdb` |
+| Raspberry Pi 5 (NVMe) | Mender `.sdimg` | `nvme0n1` |
+
+## make flash-to-external
+
+Run from the repo root after a successful build:
 
 ```bash
-wendy os install --device-type <type> --drive <device>
+make flash-to-external MACHINE=<machine>
 ```
 
-Use `wendy os list-drives` to enumerate available drives.
+### Image selection (RPi)
 
-## How it works
+For Raspberry Pi machines, `flash-to-external` looks for images in this order:
 
-`wendy os install` downloads the WendyOS release zip (~5.5 GB) for the selected device type and writes it directly to the target drive. The compressed zip is never fully extracted to disk — the image entry is streamed from the zip to the drive in a single pass, so the peak temporary disk usage is the zip file itself.
+1. `build/tmp/deploy/images/<machine>/<image>-<machine>.sdimg` — Mender A/B image (preferred)
+2. `build/tmp/deploy/images/<machine>/<image>-<machine>.rootfs.wic` — plain WIC image (fallback)
 
-### Caching
+If neither is found, the command exits with an error and instructs you to run `make build` first.
 
-The downloaded zip is cached locally. On subsequent installs for the same device type the cached zip is used directly, avoiding a repeat download. Legacy `.img` cache entries from older versions of the tool are still recognised as a fallback.
+For non-RPi machines (Jetson), `flash-to-external` uses the pre-staged image at `deploy/wendyos.img` if present, then falls back to tegraflash tooling.
 
-Use `wendy os download` to pre-populate the cache without performing an install.
+### Disk selection (Linux)
 
-### Progress
+On Linux, `flash-to-external` lists available block devices including USB, SATA, NVMe, and MMC (`mmcblk`) devices. Enter the device name without the `/dev/` prefix:
 
-While writing, the tool reports bytes written to the drive. There is no separate "Extracting image…" step.
+```
+Enter the disk to flash (e.g., sdb, nvme0n1, mmcblk0) or 'q' to quit:
+```
 
-## Disk usage
+Accepted device name formats: `sdb`, `sdc`, `nvme0n1`, `mmcblk0`, `mmcblk1`, `/dev/sdb`, `/dev/nvme0n1`, `/dev/mmcblk0`.
 
-| Scenario | Peak temporary disk usage | Cache at rest |
-|---|---|---|
-| First install | ~5.5 GB (zip only) | ~5.5 GB `.zip` |
-| Cached install | negligible | ~5.5 GB `.zip` |
+### Disk selection (macOS)
 
-## Platform notes
+On macOS, `flash-to-external` lists external physical disks via `diskutil`. Enter the disk identifier (e.g. `disk42`).
 
-### macOS
+## After flashing
 
-The image is written via `dd` to the raw disk device (`/dev/rdiskN`), bypassing the filesystem buffer cache. NVMe drives in USB enclosures use a 64 MiB block size to reduce per-write overhead over the USB link.
-
-### Linux
-
-Before writing, all mounted partitions on the target disk are unmounted automatically. `lsblk` is used to enumerate every partition (including nested ones), and each mounted partition is unmounted by its mountpoint using `sudo umount`. Partitions with deeper mountpoints are unmounted before shallower ones to avoid `EBUSY` errors. If any partition cannot be unmounted, the error is reported and the write does not proceed.
-
-The image is written via `dd` with `conv=fdatasync` to ensure the device is flushed before the command exits. NVMe drives use a 64 MiB block size and `oflag=direct` to bypass the page cache.
-
-### Windows
-
-The image is written directly to the raw disk device. After writing, any auto-assigned drive letters are removed from all partitions to prevent phantom drives from appearing in Explorer. For fixed (non-removable) disks, the disk is then taken offline. For removable media (USB, SD, MMC), the offline step is skipped — Windows does not support setting removable media offline, and physically removing the media serves as the eject action.
+After a successful flash, eject the storage and insert it into the target board. No Jetson-specific step is required — the same eject-and-insert flow applies to all supported targets.

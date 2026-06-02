@@ -2,26 +2,43 @@
 
 WendyOS supports **Raspberry Pi 5**, **Raspberry Pi 4**, and **Raspberry Pi 3** with SD card boot configurations. Raspberry Pi 5 also supports NVMe boot configurations.
 
+## Mender OTA
+
+Mender OTA is enabled on RPi3 and RPi4 (hardware-verified). RPi5 Mender support is present in the build system but has not yet been hardware-verified and may require adjustments.
+
+All Mender-enabled RPi machines use U-Boot and produce a Mender `.sdimg` (A/B rootfs layout managed by `mender-image-sd`). U-Boot 2025.04 is required and is supplied by the `meta-lts-mixins` layer (backported into the scarthgap build).
+
+Each machine conf sets `WENDYOS_MENDER = "1"` explicitly. The distro-level default remains `"0"` for the `rpi` MACHINEOVERRIDES group.
+
 ## Partition Layout
 
-Raspberry Pi images use WIC (OpenEmbedded Image Creator). The partition table format depends on the board:
+Mender-enabled RPi images use a 4-partition A/B layout managed by `mender-image-sd`:
 
-- **Raspberry Pi 4 and 5** use a **GPT** partition table (`rpi-partuuid.wks`). Partitions are referenced by PARTUUID in `cmdline.txt` and `fstab`.
-- **Raspberry Pi 3** uses an **MBR** (msdos) partition table (`rpi-mbr.wks`). The BCM2837 GPU bootrom can only read MBR-partitioned FAT32 and cannot locate `bootcode.bin` on a GPT disk, so the board never boots from a GPT image. Partitions are referenced by filesystem label instead of PARTUUID.
+| Partition | Role | Size | FS |
+|---|---|---|---|
+| 1 | Boot (U-Boot + firmware) | 100 MB | FAT32 |
+| 2 | Root A (active) | derived from total size | ext4 |
+| 3 | Root B (inactive) | derived from total size | ext4 |
+| 4 | Data (`/data`) | 256 MB | ext4 |
 
-### SD card layout
+Storage geometry defaults (SD card, `/dev/mmcblk0`):
 
-| Partition | Label | Size | FS | Mount |
-|---|---|---|---|---|
-| boot | boot | 128 MB | FAT32 | `/boot` |
-| config | config | 64 MB* | FAT32 | `/config` |
-| root | root | 8 GB | ext4 | `/` |
+| Variable | Default |
+|---|---|
+| `MENDER_STORAGE_DEVICE` | `/dev/mmcblk0` |
+| `MENDER_BOOT_PART_SIZE_MB` | `100` |
+| `MENDER_DATA_PART_SIZE_MB` | `256` |
+| `MENDER_STORAGE_TOTAL_SIZE_MB` | `7400` (fits a nominal 8 GB SD card) |
 
-### NVMe layout
+The `raspberrypi5-nvme-wendyos` machine overrides `MENDER_STORAGE_DEVICE` to `/dev/nvme0n1` and `MENDER_STORAGE_TOTAL_SIZE_MB` to `32000`.
 
-Raspberry Pi 5 supports NVMe images with the same partition layout, written to `nvme0n1` instead of `mmcblk0`.
+The build output is a `.sdimg` file located at:
 
-\* Default size. See [Build configuration](#build-configuration).
+```
+build/tmp/deploy/images/<machine>/<image>-<machine>.sdimg
+```
+
+`make flash-to-external` automatically uses the `.sdimg` when present, falling back to a `.wic` if no `.sdimg` is found.
 
 ## Config partition
 
@@ -32,5 +49,7 @@ See [Config Partition](../config-partition.md) for full details and usage guidan
 | Variable | Default | Description |
 |---|---|---|
 | `WENDYOS_CONFIG_PART_SIZE_MB` | `64` | Size of the FAT32 config partition in MB |
+| `WENDYOS_RPI_UBOOT` | `1` | Use U-Boot (required for Mender A/B updates) |
+| `MENDER_STORAGE_TOTAL_SIZE_MB` | `7400` | Total Mender storage budget in MiB |
 
-Set this in your `local.conf` or distro config to override the default.
+Set these in your `local.conf` or machine conf to override the defaults.
