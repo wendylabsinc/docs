@@ -19,7 +19,7 @@ The AGX Thor target uses the **wrynose** Yocto series. It is built from a separa
 Key differences from Orin builds:
 
 - **No Mender OTA** — Mender on Thor is deferred. `WENDYOS_MENDER = "0"` is set automatically for tegra264. There is no A/B partition layout and no `/data` partition in Phase 1.
-- **Flash format** — produces `tegraflash-tar` (a compressed tar of the tegraflash package) rather than separate `tegraflash` + `mender` artefacts.
+- **Flash format** — the build produces a `tegraflash-tar` bundle (a compressed tar of the tegraflash package). Because Thor's L4T 38.4.x bundle does not include `doexternal.sh`, the CI runs `scripts/make-thor-nvme-img.py` to parse `external-flash.xml.in` and assemble a raw GPT NVMe disk image (`wendyos-nvme.img`) offline. This `wendyos-nvme.img` is the primary artifact for `wendy os install` (dd-based provisioning), consistent with all other NVMe Jetson targets. The `tegraflash-tar` bundle is published separately as the recovery artifact for USB recovery-mode flashing via `tegraflash.py` / `initrd-flash`.
 - **Bootloader** — uses NVIDIA prebuilt UEFI firmware (`tegra-uefi-prebuilt`).
 - **Image name suffix** — wrynose oe-core defaults `IMAGE_NAME_SUFFIX` to `.rootfs`, which would produce deployed symlinks such as `wendyos-image-${MACHINE}.rootfs.tegraflash-tar`. The Thor machine config explicitly sets `IMAGE_NAME_SUFFIX = ""` so the deployed symlink matches the expected name `wendyos-image-${MACHINE}.tegraflash-tar`, consistent with all other boards.
 
