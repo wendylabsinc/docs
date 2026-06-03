@@ -121,7 +121,8 @@ build/tmp/deploy/images/<machine>/
 
 | File | Description |
 |---|---|
-| `wendyos-image-<machine>.rootfs.wic` | Raw WIC disk image (RPi / QEMU) |
+| `wendyos-image-<machine>.sdimg` | Mender A/B SD image (RPi with Mender enabled) |
+| `wendyos-image-<machine>.rootfs.wic` | Raw WIC disk image (RPi without Mender / QEMU) |
 | `wendyos-image-<machine>.rootfs.wic.bmap` | Block map for fast flashing |
 | `wendyos-image-<machine>.tegraflash.tar.gz` | Complete Tegra flash package |
 | `wendyos-image-<machine>.mender` | Mender OTA artifact |
