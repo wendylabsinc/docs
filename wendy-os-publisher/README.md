@@ -18,8 +18,12 @@ The nightly pipeline runs all device builds in parallel. The `publish` job:
 
 ### Release builds
 
-The release pipeline triggers on `v*` tags. A dedicated `announce` job sends the Discord notification **only after all of the following jobs succeed**: `release`, `publish-linux-repos`, `publish-aur`, and `publish-winget`. If any of those jobs fails, the Discord announcement does not fire. The `announce` job also only runs for stable (non-prerelease) builds.
+The release pipeline is triggered by pushing a `v*` tag. The promote workflow:
 
-- A GitHub release is created by the `release` job (idempotent — skipped if the tag already has a release).
-- The Discord announcement uses `jq` to build the webhook payload (preventing JSON injection) and validates that the webhook URL matches the Discord API domain before use. It retries up to three times on failure; if all attempts fail the release is still considered successful and the notification is silently skipped.
-- The Discord webhook is invoked once from the `announce` job, not per-device.
+1. Pushes the `v*` tag to the repository.
+2. Immediately creates a GitHub release (idempotent — skipped if the tag already has a release) and sends a Discord announcement.
+3. The tag push auto-triggers `build.yml`, which builds all device images in parallel and uploads them as the release version to the manifest.
+
+The `publish` job (master manifest update) is skipped for tag-triggered builds — the per-device upload steps write directly to the release manifest without a separate publish step.
+
+The Discord announcement fires only when a new GitHub release is created (not on an already-existing release tag). It uses `jq` to build the webhook payload and is sent inline from the promote job, immediately after the tag is pushed.
