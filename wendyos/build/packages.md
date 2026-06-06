@@ -91,6 +91,9 @@ Yocto package names differ from the upstream project names. These are the most c
 | GStreamer ugly plugins (H.264/x264enc) | `gstreamer1.0-plugins-ugly` | meta-multimedia |
 | GStreamer libav (FFmpeg) | `gstreamer1.0-libav` | meta-multimedia |
 | GStreamer NVIDIA V4L2 plugins (Tegra) | `gstreamer1.0-plugins-nvvideo4linux2` | meta-tegra |
+| GStreamer NVIDIA Argus CSI source (Tegra) | `gstreamer1.0-plugins-nvarguscamerasrc` | meta-tegra |
+| GStreamer NVIDIA colorspace converter (Tegra) | `gstreamer1.0-plugins-nvvidconv` | meta-tegra |
+| V4L2 camera debugging tools | `v4l-utils` | meta-oe |
 
 To search for a package name from a recipe name:
 

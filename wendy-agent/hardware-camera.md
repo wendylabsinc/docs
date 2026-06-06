@@ -45,7 +45,15 @@ WendyOS includes a full GStreamer stack for camera streaming pipelines. The foll
 | `gstreamer1.0-plugins-ugly` | `x264enc` (H.264 software encoder) |
 | `gstreamer1.0-libav` | FFmpeg-backed codec elements (`avenc_h264`, etc.) |
 
-On Jetson targets, `gstreamer1.0-plugins-nvvideo4linux2` is also installed, providing the `nvv4l2h264enc` hardware H.264 encoder.
+On Jetson targets, the following additional packages are installed:
+
+| Package | Contents |
+|---|---|
+| `gstreamer1.0-plugins-nvvideo4linux2` | `nvv4l2h264enc` hardware H.264 encoder |
+| `gstreamer1.0-plugins-nvarguscamerasrc` | `nvarguscamerasrc` — Argus CSI camera source for capturing from CSI/ribbon cameras (e.g. IMX477) |
+| `gstreamer1.0-plugins-nvvidconv` | `nvvidconv` — Tegra hardware colorspace and format converter |
+
+`v4l-utils` (`v4l2-ctl`) is also installed on Jetson targets for camera debugging.
 
 ### GStreamer invocation
 
