@@ -34,6 +34,9 @@ dtoverlay=dwc2
 
 # PCIe x1 lane (RPi 5 only, for NVMe access)
 dtparam=pciex1
+
+# CSI camera auto-detection (RPi 5 only)
+camera_auto_detect=1
 ```
 
 Additional machine-level settings (from `raspberrypi5-wendyos.conf` / `raspberrypi4-64-wendyos.conf`):
@@ -45,6 +48,8 @@ Additional machine-level settings (from `raspberrypi5-wendyos.conf` / `raspberry
 | `DISABLE_OVERSCAN` | `1` | No overscan compensation |
 | `ENABLE_UART` | `1` | Enables primary UART |
 | GPU memory | `16 MB` | Headless mode (set via meta-raspberrypi defaults) |
+
+The `camera_auto_detect=1` and `dtparam=pciex1` entries are set via `RPI_EXTRA_CONFIG` in `raspberrypi5-wendyos.conf` (inherited by the NVMe variant via `require`). `camera_auto_detect=1` causes the firmware to read the camera's on-board EEPROM at boot and load the matching sensor overlay automatically; it applies to official CSI cameras (IMX219, IMX477, IMX708) on either CAM connector. A camera without an EEPROM requires an explicit overlay instead, e.g. `dtoverlay=imx477,cam1`.
 
 You can add your own entries to `config.txt` in two ways:
 

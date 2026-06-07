@@ -27,6 +27,20 @@ For generic capability inspection:
 wendy device hardware list --category camera
 ```
 
+## CSI Ribbon Cameras (Raspberry Pi 5)
+
+On Raspberry Pi 5, official CSI ribbon cameras (IMX219, IMX477, IMX708) are auto-detected and stream out of the box. The firmware reads the sensor's on-board EEPROM at boot (`camera_auto_detect=1` in `config.txt`) and loads the correct device tree overlay automatically; no hardcoded `dtoverlay` is required for EEPROM-equipped cameras.
+
+The capture path on Pi 5 runs through the **PiSP** ISP (BCM2712 + RP1 CFE). WendyOS builds libcamera with the `rpi/pisp` pipeline (alongside `rpi/vc4`) and the `libcamerasrc` GStreamer element. The agent uses `cam --list` to enumerate CSI cameras and streams through `libcamerasrc`. Both `libcamera` and `libcamera-gst` are installed on all RPi images via `packagegroup-wendyos-rpi`.
+
+A camera whose ribbon connector lacks an EEPROM requires an explicit overlay in `config.txt`, for example:
+
+```ini
+dtoverlay=imx477,cam1
+```
+
+See [uboot.md](../wendyos/services/uboot.md) for details on editing `config.txt` at build time or at runtime.
+
 ## PipeWire Camera Sharing
 
 WendyOS routes V4L2 cameras through PipeWire, enabling multiple processes to open the same camera simultaneously without receiving a `EBUSY` error. The `pipewire-v4l2` compatibility shim intercepts V4L2 API calls from applications that use `/dev/video*` directly and redirects them through PipeWire transparently.
@@ -46,6 +60,8 @@ WendyOS includes a full GStreamer stack for camera streaming pipelines. The foll
 | `gstreamer1.0-libav` | FFmpeg-backed codec elements (`avenc_h264`, etc.) |
 
 On Jetson targets, `gstreamer1.0-plugins-nvvideo4linux2` is also installed, providing the `nvv4l2h264enc` hardware H.264 encoder.
+
+On Raspberry Pi 5, `libcamera-gst` is installed, providing the `libcamerasrc` GStreamer element used by the agent's video pipeline for CSI cameras.
 
 ### GStreamer invocation
 
