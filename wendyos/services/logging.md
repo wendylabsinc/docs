@@ -4,7 +4,7 @@ WendyOS uses systemd-journald for log management. All services write to the jour
 
 ## Default behaviour
 
-By default, journal logs are stored in volatile memory (`/run/log/journal`) and lost on reboot. The default for a given board tracks `WENDYOS_MENDER`: targets without a Mender-managed `/data` partition (QEMU, RPi, Thor Phase 1) use volatile logs; Orin (tegra234) uses persistent logs.
+By default, journal logs are stored in volatile memory (`/run/log/journal`) and lost on reboot. The default for a given board tracks `WENDYOS_MENDER`: targets without a Mender-managed `/data` partition (QEMU, Thor Phase 1) use volatile logs; Orin (tegra234) and 64-bit RPi (raspberrypi4-64, raspberrypi5) use persistent logs.
 
 ## Persistent journal option
 
@@ -37,7 +37,7 @@ Options=bind,x-systemd.mkdir
 
 The `x-systemd.mkdir` option automatically creates `/data/log` if it does not exist. The unit runs after `data.mount` and `mender-systemd-growfs-data.service` (if present) to ensure the data partition is fully expanded before the bind mount is established.
 
-When `Storage=persistent` is set, journald creates `/var/log/journal/<machine-id>/` and writes binary journal files there. These survive reboots and OTA updates (the `/data` partition is outside the update boundary on Tegra machines).
+When `Storage=persistent` is set, journald creates `/var/log/journal/<machine-id>/` and writes binary journal files there. These survive reboots and OTA updates (the `/data` partition is outside the update boundary on Mender-managed machines).
 
 ### Enabling persistent logging at runtime (without a rebuild)
 
