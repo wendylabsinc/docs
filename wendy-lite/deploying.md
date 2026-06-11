@@ -14,7 +14,7 @@ Wendy Lite does not have a network-accessible container registry or an OTA pull 
  main/demo_wasm.h   (C byte-array header)
       │
       ▼  idf.py build
- wendy_mcu_<target>.bin   (merged firmware)
+ wendy_mcu_<variant>.bin   (merged firmware)
       │
       ▼  idf.py flash  (USB)  — or —  wendy device run  (OTA via WiFi)
  Device running new app
@@ -63,7 +63,17 @@ For a named build target (with a `build.sh` wrapper):
 ## Step 3: Rebuild and flash the firmware
 
 ```bash
-idf.py set-target esp32c6   # first time only
+idf.py set-target esp32c6   # first time only (C5 or C6)
+idf.py build
+idf.py flash
+```
+
+For ESP32-P4 targets, a board overlay must be selected before building (see the [ESP32-P4 notes](README.md#esp32-p4-notes) in the firmware README):
+
+```bash
+idf.py @boards/waveshare_lcd_4b.cfg   set-target esp32p4   # Waveshare LCD-4B
+# or
+idf.py @boards/dfr1172_firebeetle.cfg set-target esp32p4   # DFRobot FireBeetle 2
 idf.py build
 idf.py flash
 ```
@@ -106,11 +116,20 @@ The `wendy device update` command streams the binary to the running agent over g
 
 ## GitHub CI: nightly and release binaries
 
-Every push to `main` triggers a matrix build for `esp32c5` and `esp32c6` in CI (see [`build.yml`](../../wendy-lite/.github/workflows/build.yml)). Builds produce a merged binary (`wendy_mcu_<target>.bin`) that can be flashed directly.
+Every push to `main` triggers a matrix build in CI (see [`build.yml`](../../wendy-lite/.github/workflows/build.yml)). Builds produce a merged binary (`wendy_mcu_<variant>.bin`) that can be flashed directly.
 
-**Nightly builds** are published as a pre-release GitHub release (`nightly`) containing both targets. The tag is recreated on every `main` push.
+The following variants are built:
 
-**Tagged releases** (e.g. `v1.2.0`) attach both binaries to a stable GitHub release.
+| Variant | Chip | Board |
+|---------|------|-------|
+| `esp32c5` | ESP32-C5 | Espressif C5 DevKitC |
+| `esp32c6` | ESP32-C6 | Espressif C6 DevKitC |
+| `esp32p4_waveshare_lcd_4b` | ESP32-P4 | Waveshare ESP32-P4-WIFI6-Touch-LCD-4B |
+| `esp32p4_dfr1172_firebeetle` | ESP32-P4 | DFRobot DFR1172 FireBeetle 2 |
+
+**Nightly builds** are published as a pre-release GitHub release (`nightly`) containing all variant binaries. The tag is recreated on every `main` push.
+
+**Tagged releases** (e.g. `v1.2.0`) attach all variant binaries to a stable GitHub release.
 
 The CLI's `wendy device update --nightly` flag targets nightly pre-releases; omitting it targets the latest stable release.
 
