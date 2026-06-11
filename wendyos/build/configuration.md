@@ -93,6 +93,7 @@ Controls the output image formats. Set per machine in `conf/machine/<machine>.co
 | `tegraflash-tar` | Jetson AGX Thor (L4T 38.x) | Complete NVIDIA flash package (compressed tar) |
 | `tegraflash` | Jetson (L4T 36.x and earlier) | Complete NVIDIA flash package |
 | `mender` | Jetson Orin | Mender OTA artifact |
+| `wendy` | Jetson AGX Thor | wendy-update OTA artifact (`.wendy`), produced by `wendy-update pack` on the rootfs ext4. Only emitted for the product image (`wendyos-image`); gated on `WENDYOS_OTA = "wendy"`. |
 
 ### DL_DIR / SSTATE_DIR / TMPDIR
 
@@ -120,16 +121,30 @@ Must remain `"2"`. Used by BitBake to detect incompatible `local.conf` format ch
 
 These variables are defined in the distro conf (`conf/distro/wendyos.conf`) with defaults that can be overridden in `local.conf` or in a machine conf.
 
-### WENDYOS_MENDER
+### WENDYOS_OTA
 
-Master switch for the Mender OTA stack and everything that depends on the `/data` partition Mender provides (`mender-esp`, `systemd-mount-containerd`, `swapfile-setup`, `wendyos-etc-binds`, `wendyos-user-data-setup`, etc.).
+Selects the OTA stack. Everything OTA-related keys off this variable.
 
 ```bitbake
-WENDYOS_MENDER = "1"   # enable Mender stack and /data partition (default for Orin tegra234)
-WENDYOS_MENDER = "0"   # disable Mender (default for QEMU, RPi, and Thor tegra264)
+WENDYOS_OTA = "mender"  # Mender A/B OTA (legacy stack; JP6 / scarthgap)
+WENDYOS_OTA = "wendy"   # wendy-update A/B OTA client (JP7 / wrynose)
+WENDYOS_OTA = "none"    # no OTA stack and no /data services
 ```
 
-The smart default enables Mender for all Tegra machines except tegra264 (Thor), and disables it for `qemuall` and `rpi`. Override per-machine or in `local.conf` to opt in or out independently of the SoC.
+The default enables `"mender"` for real Jetson hardware (Orin tegra234) and `"none"` for QEMU, RPi, and Thor (tegra264). RPi machine configs set `WENDYOS_OTA = "mender"` individually. Thor sets `WENDYOS_OTA = "wendy"`. Override per-machine or in `local.conf`.
+
+When `WENDYOS_OTA = "wendy"`, `conf/distro/include/wendyos-update.inc` is required, which pulls `wendyos-update` and `wendyos-data-setup` into the product image and builds a `.wendy` OTA artifact alongside the flashable image.
+
+### WENDYOS_DATA_PART
+
+Controls whether a persistent `/data` partition is carved into the Tegra flash layout. This is a lower-level flag than `WENDYOS_OTA`: a board can have a `/data` partition without a full OTA stack (e.g. during bring-up or testing).
+
+```bitbake
+WENDYOS_DATA_PART = "1"  # include /data partition (default when WENDYOS_OTA != "none")
+WENDYOS_DATA_PART = "0"  # no /data partition
+```
+
+For `WENDYOS_OTA = "mender"` the partition is given a `<filename>` so the flash tools write the Mender `.dataimg` into it. For `WENDYOS_OTA = "wendy"` the partition is allocated empty (no `<filename>`) and formatted on first boot by `wendyos-data-setup`. Consumed by `tegra_partition_config.bbclass`.
 
 ### WENDYOS_DEBUG
 
@@ -173,7 +188,7 @@ WENDYOS_PERSIST_JOURNAL_LOGS = "1"   # logs survive reboots
 WENDYOS_PERSIST_JOURNAL_LOGS = "0"   # volatile logs in tmpfs
 ```
 
-The default tracks `WENDYOS_MENDER`: when Mender provides a `/data` partition, logs are persisted there; when there is no `/data` partition (QEMU, RPi, Thor Phase 1) logs are volatile. Override per-machine or in `local.conf` to decouple this from the Mender setting.
+The default tracks `WENDYOS_OTA`: when an OTA stack provides a `/data` partition, logs are persisted there; when there is no OTA stack (`WENDYOS_OTA = "none"`, e.g. QEMU or RPi builds that have not opted in) logs are volatile. Override per-machine or in `local.conf` to decouple this from the OTA setting.
 
 The mechanism used to apply this setting differs by oe-core series: scarthgap uses `VOLATILE_LOG_DIR`; whinlatter and later use `FILESYSTEM_PERMS_TABLES` selection. WendyOS handles this automatically — use `WENDYOS_PERSIST_JOURNAL_LOGS` and the correct backend is selected for the active series.
 
@@ -216,6 +231,22 @@ WENDYOS_CONFIG_PART_SIZE_MB = "256"   # default: 256 MB
 WENDYOS_CONFIG_PART_NUMBER  = "16"    # default: partition 16
 ```
 
+### WENDYOS_DATA_PART_NUMBER
+
+GPT partition number for the persistent `/data` partition on Tegra boards. Defaults to `17`. On Mender boards `MENDER_DATA_PART_NUMBER` (set in the machine conf) is used as a fallback; `WENDYOS_DATA_PART_NUMBER` takes precedence when set.
+
+```bitbake
+WENDYOS_DATA_PART_NUMBER = "17"   # default
+```
+
+### WENDYOS_PART_ALIGN
+
+Partition start alignment in bytes used by `tegra_partition_config.bbclass` when inserting the `config` and `data` partitions into the Tegra flash XML. Defaults to `4194304` (4 MiB), which corrects the 32 KiB start-skew introduced by the NVIDIA BSP boot region. Override per-machine if a different alignment is required.
+
+```bitbake
+WENDYOS_PART_ALIGN = "4194304"   # 4 MiB (default)
+```
+
 ### WENDYOS_FLASH_IMAGE_SIZE (Tegra only)
 
 Controls the size of the flash image created by `doexternal.sh` or `dosdcard.sh`. Must match the capacity of your target storage device.
@@ -245,7 +276,7 @@ Allow the build to update bootloader firmware (Tegra only).
 
 ```bitbake
 WENDYOS_UPDATE_BOOTLOADER = "1"   # update bootloader on flash (default for Orin)
-WENDYOS_UPDATE_BOOTLOADER = "0"   # skip bootloader update (RPi, QEMU, and Thor Phase 1)
+WENDYOS_UPDATE_BOOTLOADER = "0"   # skip bootloader update (RPi, QEMU, and Thor)
 ```
 
 ### WENDYOS_EFI_DEBUG
