@@ -13,15 +13,17 @@ Raspberry Pi images use WIC (OpenEmbedded Image Creator). The partition table fo
 
 | Partition | Label | Size | FS | Mount |
 |---|---|---|---|---|
-| boot | boot | 128 MB | FAT32 | `/boot` |
-| config | config | 64 MB* | FAT32 | `/config` |
-| root | root | 8 GB | ext4 | `/` |
+| boot | boot | 100 MB | FAT32 | `/boot` |
+| rootfs-A | | | ext4 | `/` (active) |
+| rootfs-B | | | ext4 | `/` (inactive) |
+| data | data | 256 MB (image) | ext4 | `/data` |
+| config | config | 128 MB | FAT32 | `/config` |
+
+The `config` partition is provisioned by Mender as an extra part and sits after `/data`. On first boot, `reclaim-config-part` deletes it and grows `/data` to fill the storage device. After first boot, `/data` occupies all remaining space on the card.
 
 ### NVMe layout
 
 Raspberry Pi 5 supports NVMe images with the same partition layout, written to `nvme0n1` instead of `mmcblk0`.
-
-\* Default size. See [Build configuration](#build-configuration).
 
 ## Config partition
 
@@ -29,8 +31,4 @@ See [Config Partition](../config-partition.md) for full details and usage guidan
 
 ## Build configuration
 
-| Variable | Default | Description |
-|---|---|---|
-| `WENDYOS_CONFIG_PART_SIZE_MB` | `64` | Size of the FAT32 config partition in MB |
-
-Set this in your `local.conf` or distro config to override the default.
+The config partition size is fixed at 128 MB and is set via `MENDER_EXTRA_PARTS_SIZES_MB[config]` in `raspberrypi-common-wendyos.inc`. It is not user-configurable via a `local.conf` variable.

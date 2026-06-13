@@ -90,19 +90,25 @@ RPi 3 fstab mounts:
 | `LABEL=root` | `/` | ext4, noatime |
 | `LABEL=config` | `/config` | vfat, nofail |
 
-The `nofail` option on `/config` means a missing or unformatted config partition does not block boot. See [Config Partition](../config-partition.md) for details.
+The `nofail` option on `/config` means a missing or unformatted config partition does not block boot — this is important after the first-boot reclaim removes the partition. See [Config Partition](../config-partition.md) for details.
 
 ## Disk layout
 
-The partition table format depends on the board:
+The partition table format depends on the board.
 
-### RPi 4/5 — GPT (`rpi-partuuid.wks`)
+### RPi 4/5 — GPT (Mender-managed, SD card)
+
+Mender manages the rootfs A/B partitions and the data partition. The `config` partition is provisioned as a Mender extra part after `/data`. On first boot, `reclaim-config-part` deletes it and grows `/data` to fill the device.
 
 | Partition | Label | Size | Filesystem | Mount |
 |-----------|-------|------|------------|-------|
-| 1 | `boot` | 128 MB | FAT32 | `/boot` |
-| 2 | `config` | 64 MB (default) | FAT32 | `/config` |
-| 3 | `root` | 8 GB | ext4 | `/` |
+| 1 | `boot` | 100 MB | FAT32 | `/boot` |
+| 2 | (rootfs-A) | — | ext4 | `/` (active) |
+| 3 | (rootfs-B) | — | ext4 | `/` (inactive) |
+| 4 | `data` | 256 MB (image) | ext4 | `/data` |
+| 5 | `config` | 128 MB | FAT32 | `/config` |
+
+After first boot, partition 5 is deleted and `/data` fills the remainder of the device.
 
 ### RPi 3 — MBR (`rpi-mbr.wks`)
 
@@ -111,9 +117,5 @@ The BCM2837 GPU bootrom on the Pi 3 can only read MBR-partitioned FAT32. The GPT
 | Partition | Label | Size | Filesystem | Mount |
 |-----------|-------|------|------------|-------|
 | 1 | `boot` | 128 MB | FAT32 | `/boot` |
-| 2 | `config` | 64 MB (default) | FAT32 | `/config` |
+| 2 | `config` | 128 MB | FAT32 | `/config` |
 | 3 | `root` | 8 GB | ext4 | `/` |
-
-The config partition size can be adjusted at build time with `WENDYOS_CONFIG_PART_SIZE_MB` in `local.conf` or the distro conf.
-
-There is no pre-provisioned `/data` partition in the SD image. Machines that need persistent data (Tegra/Jetson) add a `/data` partition via their own WKS files.

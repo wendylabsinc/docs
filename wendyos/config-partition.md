@@ -19,11 +19,23 @@ Write files there, eject, and they are available at `/config` on the device on n
 
 ## Accessing it on the device
 
-The partition is mounted at `/config` on every boot (fstab `nofail`, so a missing or unformatted partition is not fatal):
+The partition is mounted at `/config` on every boot (fstab `nofail`, so a missing or unformatted partition is not fatal). After the first-boot reclaim (see below), the partition no longer exists and the mount silently does nothing.
 
 ```sh
 ls /config
 ```
+
+## First-boot reclaim (Raspberry Pi)
+
+On Raspberry Pi, the `config` partition is provisioned by Mender as an extra partition placed after `/data`. Because it sits after `/data`, `mender-growfs-data` cannot grow `/data` to fill the card. Instead, `reclaim-config-part` runs as a one-shot systemd service on first boot:
+
+1. Waits for `wendy-agent` to consume and erase the seed files from `/config`.
+2. Deletes the `config` partition from the partition table.
+3. Grows `/data` (and its ext4 filesystem) to fill the rest of the storage device.
+
+The service is resumable: if power is lost between the partition delete and the resize, the next boot completes the grow. A done-stamp at `/data/.wendyos-reclaim-config.done` prevents the service from running again once `/data` fills the device.
+
+After reclaim, the `/config` mount point remains in fstab with `nofail`, so the absence of the partition does not block boot.
 
 ## wendy-agent self-update
 
@@ -56,6 +68,4 @@ On every boot, `wendy-agent` checks for `/config/wendy.conf`. If found:
 
 ## Size
 
-The partition is **64 MB** by default. This is intentionally small — it is for configuration, not application data or logs. Large or frequently-written data belongs on the data partition (`/data`).
-
-The size can be adjusted at build time via `WENDYOS_CONFIG_PART_SIZE_MB` in your distro or `local.conf`.
+The partition is **128 MB**. On Raspberry Pi this space is reclaimed into `/data` after the first boot (see [First-boot reclaim](#first-boot-reclaim-raspberry-pi) above).
