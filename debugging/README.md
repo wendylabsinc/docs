@@ -20,22 +20,6 @@ If it still doesn't appear:
 
 ---
 
-## `wendy run` fails with "no device selected"
-
-You haven't set a default device. Either pass one explicitly:
-
-```sh
-wendy run --device my-jetson
-```
-
-Or set a default once and forget about it:
-
-```sh
-wendy device set-default
-```
-
----
-
 ## Build fails: "Cannot connect to the Docker daemon"
 
 Docker Desktop isn't running. Start it and wait for the whale icon in the menu bar, then retry. On Apple silicon, you can skip Docker entirely:
