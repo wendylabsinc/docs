@@ -6,7 +6,7 @@ Quick fixes for the most common issues.
 
 ## Device not showing up in `wendy discover`
 
-**Check the network first.** Your laptop and device must be on the same WiFi network, or connected via the Wendy USB cable.
+**Check the network first.** Your laptop and device must be on the same WiFi network, or connected via the USB cable.
 
 ```sh
 wendy discover --timeout 10s
