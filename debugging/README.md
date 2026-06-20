@@ -31,7 +31,7 @@ wendy run --device my-jetson
 Or set a default once and forget about it:
 
 ```sh
-wendy device set-default my-jetson
+wendy device set-default
 ```
 
 ---
