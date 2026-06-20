@@ -14,7 +14,6 @@ wendy discover --timeout 10s
 
 If it still doesn't appear:
 
-- **USB cable:** Make sure the USB-C end is in the port labelled with the Wendy logo (not a charging port). The wendy USB network adapter appears automatically — no driver install required.
 - **WiFi:** Confirm your laptop joined the hackathon network, not a personal hotspot. mDNS doesn't cross network boundaries.
 - **Device not booted:** The LED should be solid white. If it's off or flashing, the device needs more time or is still booting for the first time.
 - **macOS Local Network permission:** macOS may have blocked mDNS. Go to **System Settings → Privacy & Security → Local Network** and make sure Terminal (or `wendy`) is allowed.
