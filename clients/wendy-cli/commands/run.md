@@ -3,9 +3,11 @@ Runs your app on a Wendy-enabled device:
 1. [Selects a device](../device-selection.md)
 2. [Queries the platform and architecture](./device/version.md) of this device
 3. Invokes a [build](./build.md) using the target triple, and injects a [debugger](../../../debugging/) if needed
-4. Uploads the artifact(s) for [Linux](../../../wendy-agent/connectivity/container-registry.md) or [macOS](../../../wendy-agent/macos/)
+4. Uploads the artifact(s) using chunk-diff transfer for [Linux](../../../wendy-agent/connectivity/container-registry.md) or [macOS](../../../wendy-agent/macos/)
 5. [Starts the app](./device/apps/start.md)
 6. [Attaches the logs](./device/logs.md) if needed (when `--detach` is not provided)
+
+Uploads use content-defined chunk diffing by default — only changed chunks are transferred, making redeployments after small code edits fast even over slow connections. Docker buildx is used as a fallback when chunked transfer is not available.
 
 ## Multi-service projects (`wendy.json` with `services`)
 
@@ -68,6 +70,7 @@ After a Homebrew-based install, if `swiftly` is not yet on your `PATH`, run `eva
 | `--debug` | Enable debug logging and inject debug tooling via `WENDY_DEBUG=true`. For SwiftPM projects, builds with `-c debug` instead of `-c release`. |
 | `--yes` / `-y` | Accept all device-selection prompts automatically. |
 | `--build-type <type>` | Override build type detection: `docker`, `swift`, `python`, or `compose`. |
+| `--builder <name>` | Force a specific image builder for Dockerfile/Containerfile builds: `docker` or `apple-container`. On Apple silicon, `apple-container` builds without Docker. |
 | `--prefix <dir>` | Run from a project directory other than the current working directory. |
 | `--product <name>` | Swift Package Manager product to build and run (Swift projects only). |
 | `--service <name>` | Build and run only the named service and its transitive dependencies (multi-service `wendy.json` projects only). Returns an error if the name does not match any key in the `services` map. |
@@ -106,3 +109,7 @@ If the browser cannot be opened, a warning is printed and `wendy run` continues 
 On **Windows**, the entire process tree spawned by a `cli` hook — including grandchildren started via `start /B` — is terminated when `wendy run` exits or is interrupted. This is implemented using a Windows Job Object with `KILL_ON_JOB_CLOSE`; closing the job handle causes the kernel to terminate every process assigned to it. If Job Object creation is unavailable, `wendy run` falls back to `taskkill /T /F`, which terminates the direct child and its descendants as long as the parent process is still alive.
 
 On **Unix**, the default shell process-group cleanup is sufficient; no additional termination logic is applied.
+
+## See also
+
+- [`wendy watch`](./watch.md) — rebuild and redeploy automatically on every file change

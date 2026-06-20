@@ -231,6 +231,20 @@ HID input device access (barcode scanners, keyboards, etc.).
 { "type": "input" }
 ```
 
+### `serial`
+
+USB serial device access. Grants the container access to USB CDC-ACM and USB-to-serial adapter devices (`/dev/ttyACM*`, `/dev/ttyUSB*`).
+
+```sh
+wendy project entitlements add serial
+```
+
+```json
+{ "type": "serial" }
+```
+
+The entitlement binds only USB serial interfaces — built-in UART ports (`ttyS*`, `ttyAMA*`) are not included. For UART access use the `uart` entitlement or configure the device directly.
+
 ### `mcp`
 
 Registers the container as a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server. When this entitlement is present the wendy agent:
