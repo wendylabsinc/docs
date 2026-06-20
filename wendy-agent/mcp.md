@@ -40,7 +40,7 @@ wendy mcp setup
 
 Detection uses the presence of the tool's config directory or its binary on `PATH`. Only detected tools are configured. The binary path is resolved using `os.Executable()` without resolving symlinks, so the stable symlink (e.g. `/opt/homebrew/bin/wendy`) is recorded rather than a versioned path — the configuration remains valid across upgrades.
 
-`wendy mcp setup` also installs bundled Wendy skills into supported tools (Claude Code, Codex, OpenCode). Skills are automatically refreshed whenever the CLI is upgraded — you don't need to re-run setup after updating `wendy`.
+`wendy mcp setup` also prompts to install bundled Wendy skills into supported tools (Claude Code, Codex, OpenCode). Skills are automatically refreshed whenever the CLI is upgraded — you don't need to re-run setup after updating `wendy`.
 
 ### Manual
 
