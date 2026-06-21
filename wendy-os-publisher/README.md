@@ -23,3 +23,13 @@ The release pipeline triggers on `v*` tags. A dedicated `announce` job sends the
 - A GitHub release is created by the `release` job (idempotent — skipped if the tag already has a release).
 - The Discord announcement uses `jq` to build the webhook payload (preventing JSON injection) and validates that the webhook URL matches the Discord API domain before use. It retries up to three times on failure; if all attempts fail the release is still considered successful and the notification is silently skipped.
 - The Discord webhook is invoked once from the `announce` job, not per-device.
+
+### Wendy Lite firmware releases
+
+The wendy-lite firmware build pipeline triggers on `v*` tags. A `publish` job runs after the build and uploads each chip variant's merged `.bin` to the `wendyos-images-public` GCS bucket, then updates `manifests/<chip>.json` and the `firmware` section of `manifests/master.json` — the manifests that `wendy os install` reads from.
+
+- The publisher CLI from `tools/publisher` is reused in `--firmware` mode, so OS images and firmware share one publish path.
+- Variants are published sequentially (one runner, serial loop) so that `master.json` read-modify-write operations do not race.
+- Authentication uses GCP workload-identity federation (no long-lived keys).
+- Discord notifications are disabled for firmware publishes.
+- The chip keys published are: `esp32c5`, `esp32c6`, `esp32p4_waveshare_lcd_4b`, `esp32p4_dfr1172_firebeetle`.
