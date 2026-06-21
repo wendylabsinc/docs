@@ -232,6 +232,72 @@ C constants: `WENDY_AF_INET=2`, `WENDY_SOCK_STREAM=1`, `WENDY_SOCK_DGRAM=2`.
 
 ---
 
+## WendyNet (Async TCP/UDP)
+
+WendyNet is the high-level async networking subsystem for WendyLite. It runs a background task that multiplexes TCP and UDP sockets without blocking the WASM guest. All WendyNet functions are imported from the `"wendy"` module.
+
+### Initialisation
+
+```c
+int wendynet_init(int max_sockets);
+```
+
+Call once before any other WendyNet function. Returns 0 on success, -1 on failure.
+
+### Event drain
+
+```c
+int wendynet_drain_events(void);
+```
+
+Returns a bitmask of pending event flags and clears them. Poll this after `sys_wait_for_event` to determine what has changed.
+
+### TCP
+
+| C function | Signature | Description |
+|------------|-----------|-------------|
+| `wendynet_tcp_listen` | `(port, backlog) → listener_handle` | Bind and listen on a TCP port. Returns a listener handle or -1. |
+| `wendynet_tcp_connect` | `(host, host_len, port) → socket_handle` | Resolve `host` and open an async TCP connection. Returns a socket handle or -1. DNS resolution and connection happen asynchronously; poll `wendynet_socket_status` for `WRITABLE` before sending. |
+
+### UDP
+
+| C function | Signature | Description |
+|------------|-----------|-------------|
+| `wendynet_udp_listen` | `(port) → listener_handle` | Bind an unconnected UDP socket on `port`. Returns a listener handle or -1. Incoming datagrams from distinct remote addresses are demultiplexed into per-peer socket associations, each of which appears as an accepted socket on the listener. |
+| `wendynet_udp_connect` | `(host, host_len, port) → socket_handle` | Resolve `host` and open a connected UDP socket. Returns a socket handle or -1. The socket is associated with the specified remote address; only datagrams from that address are received. |
+
+### Listener operations
+
+| C function | Signature | Description |
+|------------|-----------|-------------|
+| `wendynet_listener_accept` | `(listener_handle) → socket_handle` | Dequeue the next accepted socket (TCP peer or UDP peer association). Returns -1 if the queue is empty. |
+| `wendynet_listener_close` | `(listener_handle) → int` | Close the listener. For UDP listeners, all per-peer associations are also closed. |
+| `wendynet_listener_port` | `(listener_handle) → int` | Returns the port the listener is bound to. |
+
+### Socket operations
+
+| C function | Signature | Description |
+|------------|-----------|-------------|
+| `wendynet_socket_status` | `(socket_handle) → int` | Returns a status bitmask (see below). |
+| `wendynet_socket_recv` | `(socket_handle, buf, len) → int` | Read data from the socket into `buf`. For UDP sockets (connected or peer), the entire datagram is consumed atomically; if `len` is smaller than the datagram, the remainder is discarded (POSIX `MSG_TRUNC` semantics). |
+| `wendynet_socket_send` | `(socket_handle, data, len) → int` | Write data to the socket. For UDP sockets, the whole datagram must fit within `WENDY_NET_BUFFER_SIZE`; if a prior datagram is still buffered, returns 0 (would block). |
+| `wendynet_socket_close` | `(socket_handle) → int` | Close the socket. For UDP sockets, the slot is released immediately. |
+
+### Status bitmask
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `WENDYNET_STATUS_READABLE` | `1` | Data is available to read |
+| `WENDYNET_STATUS_WRITABLE` | `2` | Socket can accept a send. For TCP: buffer space is available. For UDP: tx slot is empty (previous datagram has been sent). |
+| `WENDYNET_STATUS_CLOSED` | `4` | Connection is closed |
+| `WENDYNET_STATUS_ERROR` | `8` | An error has occurred |
+
+### UDP buffer sizing
+
+Each socket has one RX and one TX buffer of `WENDY_NET_BUFFER_SIZE` bytes. For UDP, this size is the maximum datagram size: each datagram occupies one whole slot. Inbound datagrams larger than `WENDY_NET_BUFFER_SIZE` are truncated (excess discarded). Outbound datagrams larger than `WENDY_NET_BUFFER_SIZE` are rejected (send returns an error) rather than truncated. The guest's recv buffer must be at least `WENDY_NET_BUFFER_SIZE` bytes or received datagrams will be truncated.
+
+---
+
 ## OpenTelemetry
 
 | C function | Swift (`OTel.`) | Rust (`otel::`) |
